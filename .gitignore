@@ -1,0 +1,5 @@
+*.exe
+secrets.py
+.idea
+*.sqlite
+tst*.py
