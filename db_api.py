@@ -49,10 +49,12 @@ class EncounterNewsDB:
         DOMAIN varchar(100),
         ID int,
         NAME varchar(255),
+        MODE varchar(255),
         FORMAT varchar(255),
         PASSING_SEQUENCE varchar(255),
         START_TIME TIMESTAMP_NTZ,
         END_TIME TIMESTAMP_NTZ,
+        PLAYER_IDS varchar(500),
         PRIMARY KEY (DOMAIN, ID)
         )
         """, raise_on_error=False)
@@ -141,7 +143,7 @@ class EncounterNewsDB:
 
         games = domain.get_games()
         for game in games:
-            self.game_to_db(game, domain_normalized_url)
+            self.game_to_db(game)
 
         return res
 
@@ -159,10 +161,9 @@ class EncounterNewsDB:
 
         return domains
 
-    def game_to_db(self, game: EncounterGame, domain: str) -> bool:
+    def game_to_db(self, game: EncounterGame) -> bool:
         row = pd.DataFrame([
             {
-                "DOMAIN": domain,
                 **game.to_json(),
             }
         ])
@@ -191,14 +192,31 @@ class EncounterNewsDB:
         ]
         return games
 
+    def show_games_multiple_domains(self, domains: typing.List[Domain]) -> typing.List[EncounterGame]:
+        domains_tuple = tuple(domain.full_url for domain in domains)
+        res = self.query(
+            f"""
+            SELECT * 
+            FROM DOMAIN_GAMES
+            WHERE DOMAIN IN {domains_tuple}
+            ORDER BY START_TIME
+            """,
+        )
+
+        games = [
+            EncounterGame.from_json(row)
+            for _, row in res.iterrows()
+        ]
+        return games
+
     def show_games_outer(self, tg_id: int, domain: str) -> typing.List[EncounterGame]:
-        if domain == "ALL":
+        if domain == "All":
             domains = self.get_user_domains(tg_id)
-            games = []
-            for domain in domains:
-                domain_inst = Domain.from_url(domain)
-                games_pt = self.show_games(domain_inst)
-                games.extend(games_pt)
+            domains_instances = [
+                Domain.from_url(domain)
+                for domain in domains
+            ]
+            games = self.show_games_multiple_domains(domains_instances)
         else:
             domain_inst = Domain.from_url(domain)
             games = self.show_games(domain_inst)

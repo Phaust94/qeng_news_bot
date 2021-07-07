@@ -1,8 +1,7 @@
 
-import re
 import enum
 
-from telegram import Update, ReplyKeyboardMarkup, forcereply
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
 import os
 os.chdir(os.path.join(*os.path.split(__file__)[:-1]))
@@ -119,14 +118,15 @@ def get_games_end(update: Update, context: CallbackContext) -> int:
         games = db.show_games_outer(chat_id, domain)
 
     res = "\n-----------------------------------------------\n".join(map(str, games))
-    update.message.reply_text(res)
+    update.message.reply_text(res, parse_mode="HTML")
+    update.message.text
 
-    return States.SettingsChoice
+    return settings(update, context)
 
 
 # noinspection PyUnusedLocal
 def error_handler(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(f"An error occurred: {context.error}")
+    update.message.reply_text(f"An error occurred: {{{context.error.__class__}}} {context.error}")
     return None
 
 
@@ -138,11 +138,26 @@ def info(update: Update, context: CallbackContext) -> None:
 
 
 STATE_TO_HANDLERS = {
-    States.SettingsChoice: [MessageHandler(Filters.text, callback=settings)],
-    States.AddDomain: [MessageHandler(Filters.text, add_domain)],
-    States.AddDomainGetDomainName: [MessageHandler(Filters.text, add_domain_end)],
-    States.GetDomainGames: [MessageHandler(Filters.text, get_games)],
-    States.GetDomainGamesGetDomainName: [MessageHandler(Filters.text, get_games_end)]
+    States.SettingsChoice: [
+        MessageHandler(Filters.text & ~Filters.command, callback=settings),
+        CommandHandler("settings", settings_start),
+    ],
+    States.AddDomain: [
+        MessageHandler(Filters.text & ~Filters.command, add_domain),
+        CommandHandler("settings", settings_start),
+    ],
+    States.AddDomainGetDomainName: [
+        MessageHandler(Filters.text & ~Filters.command, add_domain_end),
+        CommandHandler("settings", settings_start),
+    ],
+    States.GetDomainGames: [
+        MessageHandler(Filters.text & ~Filters.command, get_games),
+        CommandHandler("settings", settings_start),
+    ],
+    States.GetDomainGamesGetDomainName: [
+        MessageHandler(Filters.text & ~Filters.command, get_games_end),
+        CommandHandler("settings", settings_start),
+    ]
 }
 
 
