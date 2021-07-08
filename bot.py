@@ -3,8 +3,12 @@ import enum
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
+
 import os
-os.chdir(os.path.join(*os.path.split(__file__)[:-1]))
+import sys
+cur_dir = os.path.dirname(__file__)
+if cur_dir not in sys.path:
+    sys.path.append(cur_dir)
 
 from secrets import API_KEY
 from version import __version__
@@ -119,9 +123,8 @@ def get_games_end(update: Update, context: CallbackContext) -> int:
 
     res = "\n-----------------------------------------------\n".join(map(str, games))
     update.message.reply_text(res, parse_mode="HTML")
-    update.message.text
-
-    return settings(update, context)
+    settings_start(update, context)
+    return States.SettingsChoice
 
 
 # noinspection PyUnusedLocal
