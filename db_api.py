@@ -227,10 +227,11 @@ class EncounterNewsDB:
             ]
         )
         res = True
-        try:
-            row.to_sql(table_name, self._db_conn, if_exists=if_exists_action, index=False)
-        except IntegrityError:
-            res = False
+        if not row.empty:
+            try:
+                row.to_sql(table_name, self._db_conn, if_exists=if_exists_action, index=False)
+            except IntegrityError:
+                res = False
 
         return res
 
