@@ -4,20 +4,23 @@
 
 from __future__ import annotations
 
-import abc
 import datetime
 from dataclasses import dataclass
 import re
 import enum
 import typing
+import hashlib
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup, Tag
 from fake_useragent import UserAgent
 
+from constants import MAX_DESCRIPTION_LENGTH
+
 __all__ = [
-    "Domain", "EncounterGame"
+    "Domain", "EncounterGame", "Rule",
+    "GameMode", "GameFormat", "PassingSequence",
 ]
 
 
@@ -64,6 +67,9 @@ class Domain:
         ]
         return games
 
+    def __str__(self) -> str:
+        return self.full_url
+
 
 GAME_ID_RE = r"gid=([0-9]+)"
 PARAMS = [
@@ -74,26 +80,31 @@ PARAMS = [
 ]
 
 
+class Language(enum.Enum):
+    Russian = enum.auto()
+    English = enum.auto()
+
+
 # ABC
 class CustomNamedEnum(enum.Enum):
 
-    @classmethod
-    @abc.abstractmethod
-    def custom_names(cls) -> typing.Dict[CustomNamedEnum, str]:
-        raise NotImplemented
-
-    @property
-    def name(self) -> str:
-        res = self.custom_names()[self]
+    def localized_name(self, language: Language) -> str:
+        res = self.localization_dict()[self][language]
         return res
 
     @classmethod
     def from_str(cls, s: str) -> CustomNamedEnum:
-        n_to_v = cls.__members__
-        v_to_custom_n = cls.custom_names()
-        n_to_v_full = {**n_to_v, **{v: k for k, v in v_to_custom_n.items()}}
-        inst = n_to_v_full[s]
+        localized_name_to_inst = {
+            loc_name: type_
+            for type_, loc_ in cls.localization_dict().items()
+            for lang, loc_name in loc_.items()
+        }
+        inst = localized_name_to_inst[s]
         return inst
+
+    @classmethod
+    def localization_dict(cls) -> typing.Dict[CustomNamedEnum, typing.Dict[Language, str]]:
+        raise NotImplementedError
 
 
 class GameMode(CustomNamedEnum):
@@ -108,49 +119,113 @@ class GameMode(CustomNamedEnum):
     Competition = enum.auto()
 
     @classmethod
-    def custom_names(cls) -> typing.Dict[GameMode, str]:
-        res = {
-            cls.Quest: "Схватка",
-            cls.Points: "Точки",
-            cls.Brainstorm: "Мозговой штурм",
-            cls.Quiz: "Викторина",
-            cls.PhotoHunt: "Фотоохота",
-            cls.PhotoExtreme: "Фотоэкстрим",
-            cls.GeoCaching: "Кэшинг",
-            cls.WetWars: "Мокрые войны",
-            cls.Competition: "Конкурс",
+    def localization_dict(cls) -> typing.Dict[GameMode, typing.Dict[Language, str]]:
+        di = {
+            cls.Quest: {
+                Language.Russian: "Схватка",
+                Language.English: "Quest",
+            },
+            cls.Points: {
+                Language.Russian: "Точки",
+                Language.English: "Points",
+            },
+            cls.Brainstorm: {
+                Language.Russian: "Мозговой штурм",
+                Language.English: "Brainstorm",
+            },
+            cls.Quiz: {
+                Language.Russian: "Викторина",
+                Language.English: "Quiz",
+            },
+            cls.PhotoHunt: {
+                Language.Russian: "Фотоохота",
+                Language.English: "PhotoHunt",
+            },
+            cls.PhotoExtreme: {
+                Language.Russian: "Фотоэкстрим",
+                Language.English: "PhotoExtreme",
+            },
+            cls.GeoCaching: {
+                Language.Russian: "Кэшинг",
+                Language.English: "GeoCaching",
+            },
+            cls.WetWars: {
+                Language.Russian: "Мокрые войны",
+                Language.English: "WetWars",
+            },
+            cls.Competition: {
+                Language.Russian: "Конкурс",
+                Language.English: "Competition",
+            },
         }
-        return res
+        return di
 
 
 class GameFormat(CustomNamedEnum):
-    Single = "Single"
-    Team = "Team"
+    Single = enum.auto()
+    Team = enum.auto()
 
     @classmethod
-    def custom_names(cls) -> typing.Dict[GameFormat, str]:
-        return {
-            cls.Single: "В одиночку",
-            cls.Team: "Командами",
+    def localization_dict(cls) -> typing.Dict[GameFormat, typing.Dict[Language, str]]:
+        di = {
+            cls.Single: {
+                Language.Russian: "В одиночку",
+                Language.English: "Single",
+            },
+            cls.Team: {
+                Language.Russian: "Командами",
+                Language.English: "Team",
+            },
         }
+        return di
+
+    def members_text(self, lang: Language) -> str:
+        cls = self.__class__
+        di = {
+            cls.Single: {
+                Language.Russian: "Игроков зарегистрировано",
+                Language.English: "Players registered",
+            },
+            cls.Team: {
+                Language.Russian: "Команд зарегистрировано",
+                Language.English: "Teams registered",
+            },
+        }
+        return di[self][lang]
 
 
 class PassingSequence(CustomNamedEnum):
-    Linear = "Linear"
-    Storm = "Storm"
-    Custom = "Custom (not inear)"
-    Random = "Random"
-    DynamicallyRandom = "Dinamically random"
+    Linear = enum.auto()
+    Storm = enum.auto()
+    Custom = enum.auto()
+    Random = enum.auto()
+    DynamicallyRandom = enum.auto()
 
     @classmethod
-    def custom_names(cls) -> typing.Dict[PassingSequence, str]:
-        return {
-            cls.Linear: "Линейная",
-            cls.Storm: "Штурмовая",
-            cls.Custom: "Указанная (не линейная)",
-            cls.Random: "Случайная",
-            cls.DynamicallyRandom: "Динамически случайная",
+    def localization_dict(cls) -> typing.Dict[CustomNamedEnum, typing.Dict[Language, str]]:
+        di = {
+            cls.Linear: {
+                Language.Russian: "Линейная",
+                Language.English: "Linear",
+            },
+            cls.Storm: {
+                Language.Russian: "Штурмовая",
+                Language.English: "Storm",
+            },
+            cls.Custom: {
+                Language.Russian: "Указанная (не линейная)",
+                Language.English: "Custom (not inear)",
+            },
+            cls.Random: {
+                Language.Russian: "Случайная",
+                Language.English: "Random",
+            },
+            cls.DynamicallyRandom: {
+                Language.Russian: "Динамически случайная",
+                Language.English: "Dinamically random",
+            },
         }
+        return di
 
 
 @dataclass
@@ -164,6 +239,7 @@ class EncounterGame:
     _start_time: typing.Union[str, datetime.datetime]
     _end_time: typing.Union[str, datetime.datetime]
     player_ids: typing.List[int]
+    game_description: str
 
     @property
     def game_format(self) -> GameFormat:
@@ -276,7 +352,11 @@ class EncounterGame:
         player_ids = [cls.find_player_id(p) for p in player_hrefs]
         player_ids = sorted(player_ids)
 
-        inst = cls(domain, id_, name, game_mode, format_, seq_, start, end, player_ids)
+        game_descr = html.find("div", class_="divDescr").text
+        nbsp = u'\xa0'
+        game_descr = game_descr.replace(nbsp, "").replace("\n\n", "\n").replace("\n \n", "\n")
+
+        inst = cls(domain, id_, name, game_mode, format_, seq_, start, end, player_ids, game_descr)
         return inst
 
     @property
@@ -300,12 +380,16 @@ class EncounterGame:
         ids_ = cls.player_ids_from_string(json["PLAYER_IDS"])
         domain = Domain.from_url(json["DOMAIN"])
 
+        desc = json["DESCRIPTION_TRUNCATED"]
+        if json["DESCRIPTION_REAL_LENGTH"] > MAX_DESCRIPTION_LENGTH and desc.endswith("..."):
+            desc = desc[:-3]
+
         inst = cls(
             domain,
-            json["ID"], json["NAME"], json["MODE"],
-            json["FORMAT"], json["PASSING_SEQUENCE"],
+            json["ID"], json["NAME"], GameMode(json["MODE"]),
+            GameFormat(json["FORMAT"]), PassingSequence(json["PASSING_SEQUENCE"]),
             json["START_TIME"], json["END_TIME"],
-            ids_,
+            ids_, desc,
         )
         return inst
 
@@ -325,37 +409,106 @@ class EncounterGame:
             player_ids_int = []
         return player_ids_int
 
+    @property
+    def game_description_truncated(self) -> str:
+        res = self.game_description[:MAX_DESCRIPTION_LENGTH]
+        if len(self.game_description) > MAX_DESCRIPTION_LENGTH:
+            res += "..."
+        return res
+
     def to_json(self) -> typing.Dict[str, typing.Any]:
         di = {
             "DOMAIN": self.domain.full_url,
             "ID": self.game_id,
             "NAME": self.game_name,
-            "MODE": self.game_mode.name,
-            "FORMAT": self.game_format.name,
-            "PASSING_SEQUENCE": self.passing_sequence.name,
+            "MODE": self.game_mode.value,
+            "FORMAT": self.game_format.value,
+            "PASSING_SEQUENCE": self.passing_sequence.value,
             "START_TIME": self.start_time,
             "END_TIME": self.end_time,
             "PLAYER_IDS": self.player_ids_str,
+            "DESCRIPTION_TRUNCATED": self.game_description_truncated,
+            "DESCRIPTION_REAL_LENGTH": len(self.game_description),
         }
         return di
 
-    def __str__(self) -> str:
+    def to_str(self, lang: Language) -> str:
+        mem_txt = self.game_format.members_text(lang)
+        desc = {
+            lang.Russian: "Описание",
+            lang.English: "Description",
+        }[lang]
+        game_props = [
+            self.game_mode.localized_name(lang),
+            self.passing_sequence.localized_name(lang),
+            self.game_format.localized_name(lang),
+        ]
         pts = [
             f"<b>{self.game_name}</b> (id <a href='{self.game_details_full_url}' target='_blank'>{self.game_id}</a>)",
-            f"{self.game_mode.name}, {self.passing_sequence.name} ({self.game_format.name})",
+            "{}, {} ({})".format(*game_props),
             f"{self.start_time} -> {self.end_time}",
-            f"Players registered: {len(self.player_ids)}",
+            f"{mem_txt}: {len(self.player_ids)}",
+            f"{desc}: {self.game_description_truncated}"
         ]
         res = "\n".join(pts)
         return res
+
+    def __str__(self) -> str:
+        res = self.to_str(Language.Russian)
+        return res
+
+
+@dataclass
+class Rule:
+    domain: typing.Optional[Domain] = None
+    player_id: typing.Optional[int] = None
+    team_id: typing.Optional[int] = None
+    game_id: typing.Optional[int] = None
+
+    @property
+    def rule_id(self) -> str:
+        to_hash = [
+            self.domain or "",
+            self.player_id or "",
+            self.team_id or "",
+            self.game_id or "",
+        ]
+        to_hash = "".join(str(x) for x in to_hash)
+        rule_id = hashlib.md5(to_hash.encode()).hexdigest()[:10]
+        return rule_id
+
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+        j = {
+            "RULE_ID": self.rule_id,
+            "DOMAIN": str(self.domain) if self.domain else None,
+            "PLAYER_ID": self.player_id,
+            "TEAM_ID": self.team_id,
+            "GAME_ID": self.game_id,
+        }
+        return j
+
+    @classmethod
+    def from_json(cls, j: typing.Dict[str, typing.Any]):
+        dom = j["DOMAIN"]
+        if dom:
+            dom = Domain.from_url(dom)
+        inst = cls(
+            dom,
+            j["PLAYER_ID"],
+            j["TEAM_ID"],
+            j["GAME_ID"],
+        )
+        return inst
 
 
 if __name__ == '__main__':
     # games_ = Domain.from_url("http://kramatorsk.en.cx").get_games()
     games_ = Domain.from_url("http://kharkiv.en.cx").get_games()
     print(list(map(str, games_)))
+    print("a")
+    # print(GameMode(1))
     # print(PassingSequence.from_str("Linear"))
     # print(PassingSequence.from_str("Линейная"))
-    # print(GameFormat.from_str("Командная"))
+    # print(GameFormat.from_str("Командами"))
     # print(GameFormat.from_str("Team"))
-    # print(GameFormat.from_str("Storsm"))
+    # print(GameFormat.from_str("Storm"))

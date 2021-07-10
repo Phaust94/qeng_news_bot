@@ -11,7 +11,8 @@ from sqlite3 import IntegrityError
 
 import pandas as pd
 
-from meta import Domain, EncounterGame
+from meta import Domain, EncounterGame, Rule, GameFormat
+from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH
 
 __all__ = [
     "EncounterNewsDB",
@@ -40,23 +41,29 @@ class EncounterNewsDB:
         CREATE TABLE USER_SUBSCRIPTION
         (
         USER_ID int,
+        RULE_ID varchar(10),
         DOMAIN varchar(100),
-        PRIMARY KEY (USER_ID, DOMAIN)
+        PLAYER_ID int,
+        TEAM_ID int,
+        GAME_ID int,
+        PRIMARY KEY (USER_ID, RULE_ID)
         )
         """, raise_on_error=False)
 
-        self.query("""
+        self.query(f"""
         CREATE TABLE DOMAIN_GAMES
         (
         DOMAIN varchar(100),
         ID int,
         NAME varchar(255),
-        MODE varchar(255),
-        FORMAT varchar(255),
-        PASSING_SEQUENCE varchar(255),
+        MODE int,
+        FORMAT int,
+        PASSING_SEQUENCE int,
         START_TIME TIMESTAMP_NTZ,
         END_TIME TIMESTAMP_NTZ,
         PLAYER_IDS varchar(500),
+        DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
+        DESCRIPTION_REAL_LENGTH int,
         PRIMARY KEY (DOMAIN, ID)
         )
         """, raise_on_error=False)
@@ -70,34 +77,50 @@ class EncounterNewsDB:
         )
         """, raise_on_error=False)
 
-        self.query("""
+        self.query(f"""
                 CREATE TABLE DOMAIN_GAMES_TEMP
                 (
                 DOMAIN varchar(100),
                 ID int,
                 NAME varchar(255),
-                MODE varchar(255),
-                FORMAT varchar(255),
-                PASSING_SEQUENCE varchar(255),
+                MODE int,
+                FORMAT int,
+                PASSING_SEQUENCE int,
                 START_TIME TIMESTAMP_NTZ,
                 END_TIME TIMESTAMP_NTZ,
                 PLAYER_IDS varchar(500),
+                DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
+                DESCRIPTION_REAL_LENGTH int,
                 PRIMARY KEY (DOMAIN, ID)
                 )
                 """, raise_on_error=False)
 
-        self.query("""
+        self.query(f"""
                 CREATE TABLE DOMAIN_GAMES_DIFFERENCES
                 (
                 DOMAIN varchar(100),
                 ID int,
                 GAME_NEW int,
                 NAME_CHANGED int,
-                FORMAT_CHANGED int,
+                OLD_NAME varchar(255),
+                NEW_NAME varchar(255),
                 PASSING_SEQUENCE_CHANGED int,
+                OLD_PASSING_SEQUENCE int,
+                NEW_PASSING_SEQUENCE int,
                 START_TIME_CHANGED int,
+                OLD_START_TIME TIMESTAMP_NTZ,
+                NEW_START_TIME TIMESTAMP_NTZ,
                 END_TIME_CHANGED int,
+                OLD_END_TIME TIMESTAMP_NTZ,
+                NEW_END_TIME TIMESTAMP_NTZ,
                 PLAYERS_LIST_CHANGED int,
+                OLD_PLAYER_IDS varchar(500),
+                NEW_PLAYER_IDS varchar(500),
+                DESCIRPTION_SIGNIFICANTLY_CHANGED int,
+                OLD_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
+                NEW_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
+                GAME_MODE int,
+                GAME_FORMAT int,
                 PRIMARY KEY (DOMAIN, ID)
                 )
                 """, raise_on_error=False)
@@ -125,27 +148,38 @@ class EncounterNewsDB:
             res = pd.DataFrame([{"Exception_text": exc_txt}])
         return res
 
+    def add_domain_rule(self, tg_id: int, domain: Domain) -> str:
+        rule = Rule(domain=domain)
+        df = pd.DataFrame([{
+            "USER_ID": tg_id,
+            **rule.to_json(),
+        }])
+        res = "Rule added"
+        try:
+            df.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
+        except IntegrityError:
+            res = "You already have this domain rule"
+        return res
+
     def add_domain_to_user_outer(self, tg_id: int, domain: str) -> str:
         domain_inst = Domain.from_url(domain)
-        is_tracked = self.is_domain_tracked(domain_inst)
-        res = self.add_domain_to_user(tg_id, domain_inst)
-        if not is_tracked:
-            self.track_domain(domain_inst)
+        self.track_domain(domain_inst)
+        res = self.add_domain_rule(tg_id, domain_inst)
         return res
 
-    def add_domain_to_user(self, tg_id: int, domain: Domain) -> str:
-
-        domain_normalized_url = domain.full_url
-        row = pd.DataFrame([{
-            "USER_ID": tg_id,
-            "DOMAIN": domain_normalized_url,
-        }])
-        res = "Domain added to the list"
-        try:
-            row.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
-        except IntegrityError:
-            res = "You already have the domain in the watched list"
-        return res
+    # def add_domain_to_user(self, tg_id: int, domain: Domain) -> str:
+    #
+    #     domain_normalized_url = domain.full_url
+    #     row = pd.DataFrame([{
+    #         "USER_ID": tg_id,
+    #         "DOMAIN": domain_normalized_url,
+    #     }])
+    #     res = "Domain added to the list"
+    #     try:
+    #         row.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
+    #     except IntegrityError:
+    #         res = "You already have the domain in the watched list"
+    #     return res
 
     def is_domain_tracked(self, domain: Domain) -> bool:
         domain_normalized_url = domain.full_url
@@ -332,7 +366,7 @@ class EncounterNewsDB:
         drop_query = """DROP TABLE IF EXISTS DOMAIN_GAMES_DIFFERENCES"""
         self.query(drop_query, raise_on_error=False)
 
-        create_query = """
+        create_query = f"""
         CREATE TABLE DOMAIN_GAMES_DIFFERENCES
         AS
         WITH changes_all as (
@@ -340,18 +374,32 @@ class EncounterNewsDB:
             temp.DOMAIN, temp.ID, 
             CASE WHEN ex.DOMAIN IS NULL THEN 1 ELSE 0 END as GAME_NEW,
             CASE WHEN temp.NAME <> ex.NAME THEN 1 ELSE 0 END as NAME_CHANGED,
-            CASE WHEN temp.FORMAT <> ex.FORMAT THEN  1 ELSE 0 END as FORMAT_CHANGED,
+            ex.NAME as OLD_NAME,
+            temp.NAME as NEW_NAME,
             CASE WHEN temp.PASSING_SEQUENCE <> ex.PASSING_SEQUENCE THEN 1 ELSE 0 END as PASSING_SEQUENCE_CHANGED,
+            ex.PASSING_SEQUENCE as OLD_PASSING_SEQUENCE,
+            temp.PASSING_SEQUENCE as NEW_PASSING_SEQUENCE,
             CASE WHEN temp.START_TIME <> ex.START_TIME THEN 1 ELSE 0 END as START_TIME_CHANGED,
+            ex.START_TIME as OLD_START_TIME,
+            temp.START_TIME as NEW_START_TIME,
             CASE WHEN temp.END_TIME <> ex.END_TIME THEN 1 ELSE 0 END as END_TIME_CHANGED,
+            ex.END_TIME as OLD_END_TIME,
+            temp.END_TIME as NEW_END_TIME,
             CASE WHEN temp.PLAYER_IDS <> ex.PLAYER_IDS THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED
+            ex.PLAYER_IDS as OLD_PLAYER_IDS,
+            temp.PLAYER_IDS as NEW_PLAYER_IDS,
+            CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 1.0 / (ex.DESCRIPTION_REAL_LENGTH + 1) > {PERCENTAGE_CHANGE_TO_TRIGGER} THEN 1 ELSE 0 END as DESCIRPTION_SIGNIFICANTLY_CHANGED,
+            ex.DESCRIPTION_TRUNCATED as OLD_DESCRIPTION_TRUNCATED,
+            temp.DESCRIPTION_TRUNCATED as NEW_DESCRIPTION_TRUNCATED,
+            temp.GAME_MODE,
+            temp.GAME_FORMAT
             FROM DOMAIN_GAMES_TEMP as temp
             LEFT OUTER JOIN DOMAIN_GAMES as ex
             ON (temp.DOMAIN = ex.DOMAIN AND temp.ID = ex.ID)
         )
         SELECT *
         FROM changes_all
-        WHERE GAME_NEW + NAME_CHANGED + FORMAT_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + END_TIME_CHANGED + PLAYERS_LIST_CHANGED > 0
+        WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCIRPTION_SIGNIFICANTLY_CHANGED> 0
         """
         res = self.query(create_query, raise_on_error=False)
 
@@ -370,6 +418,48 @@ class EncounterNewsDB:
         domains = res["DOMAIN"].tolist()
         domains = [Domain.from_url(d) for d in domains]
         return domains
+
+    def notify_users(self) -> None:
+        query = f"""
+        SELECT
+        
+        FROM DOMAIN_GAMES_DIFFERENCES as dd
+        INNER JOIN USER_SUBSCRIPTION as us
+        ON (
+            (
+                1=1
+                AND us.DOMAIN = dd.DOMAIN
+                AND (
+                    1=0
+                    OR dd.GAME_NEW = 1
+                    OR dd.NAME_CHANGED = 1
+                    OR dd.PASSING_SEQUENCE_CHANGED = 1
+                    OR dd.START_TIME_CHANGED = 1
+                    OR dd.DESCIRPTION_SIGNIFICANTLY_CHANGED = 1
+                )
+            )
+            OR 
+            (
+                1=1
+                AND dd.GAME_FORMAT = {GameFormat.Single.value}
+                AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%';
+            )
+            OR
+            (
+                1=1
+                AND dd.GAME_FORMAT = {GameFormat.Team.value}
+                AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%';
+            )
+            OR 
+            (
+                1=1
+                AND dd.DOMAIN = us.DOMAIN
+                AND dd.ID = us.GAME_ID
+            )
+        """
+        users_to_notify = {}
+
+        return None
 
     def close_connection(self) -> None:
         # noinspection PyBroadException
@@ -393,4 +483,4 @@ if __name__ == '__main__':
     from constants import DB_LOCATION
     with EncounterNewsDB(DB_LOCATION) as db:
         d_ = Domain("kharkiv")
-        db.update_domain(d_)
+        db.update_domains([d_])

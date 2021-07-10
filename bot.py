@@ -122,7 +122,7 @@ def get_games_end(update: Update, context: CallbackContext) -> int:
         games = db.show_games_outer(chat_id, domain)
 
     res = "\n-----------------------------------------------\n".join(map(str, games))
-    update.message.reply_text(res, parse_mode="HTML")
+    update.message.reply_text(res, parse_mode="HTML", disable_web_page_preview=True)
     settings_start(update, context)
     return States.SettingsChoice
 

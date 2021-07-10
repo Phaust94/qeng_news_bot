@@ -17,6 +17,7 @@ def main() -> None:
         domains_due = db.find_domains_due(UPDATE_FREQUENCY_SECONDS)
         if domains_due:
             db.update_domains(domains_due)
+            db.notify_users()
 
     return None
 
