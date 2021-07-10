@@ -1,8 +1,10 @@
 
 import enum
+import typing
 
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
+# from emoji import emojize
 
 import os
 import sys
@@ -13,15 +15,18 @@ if cur_dir not in sys.path:
 from secrets import API_KEY
 from version import __version__
 from db_api import EncounterNewsDB
-from constants import DB_LOCATION
+from constants import DB_LOCATION, MAX_MESSAGE_LENGTH_TELEGRAM, GAME_JOINER
+from meta import EncounterGame, Language
 
 
 class States(enum.IntEnum):
     SettingsChoice = enum.auto()
     AddDomain = enum.auto()
     AddDomainGetDomainName = enum.auto()
+    AddDomainGetLanguage = enum.auto()
     GetDomainGames = enum.auto()
     GetDomainGamesGetDomainName = enum.auto()
+    # GetDomainGamesGetLanguage = enum.auto()
     SettingsSet = enum.auto()
 
 
@@ -44,7 +49,6 @@ def settings_start(update: Update, context: CallbackContext) -> int:
         "Let's set up some settings, shall we?",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard,
-            one_time_keyboard=True
         )
     )
 
@@ -72,9 +76,36 @@ def add_domain(update: Update, context: CallbackContext) -> int:
 
 
 # noinspection PyUnusedLocal
-def add_domain_end(update: Update, context: CallbackContext) -> int:
+def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
     domain = update.message.text
+    context.user_data["domain"] = domain
+
+    prompt = "Choose domain language"
+    reply_keyboard = [
+        [
+            el.flag
+            for el in Language
+            if el.flag
+        ]
+    ]
+
+    update.message.reply_text(
+        prompt,
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True
+        )
+    )
+
+    return States.AddDomainGetLanguage
+
+
+def add_domain_get_language(update: Update, context: CallbackContext) -> int:
+    chat_id = update.message.chat_id
+    language = update.message.text
+    language = Language.from_flag(language)
+    domain = context.user_data["domain"]
 
     with EncounterNewsDB(DB_LOCATION) as db:
         res = db.add_domain_to_user_outer(chat_id, domain)
@@ -113,6 +144,36 @@ def get_games(update: Update, context: CallbackContext) -> int:
     return States.GetDomainGamesGetDomainName
 
 
+def split_game_desc(game: EncounterGame):
+    desc = str(game)
+    pts = []
+    for x in range(0, len(desc), MAX_MESSAGE_LENGTH_TELEGRAM):
+        pt = info[x:x + MAX_MESSAGE_LENGTH_TELEGRAM]
+        pts.append(pt)
+    return pts
+
+
+def games_desc_adaptive(games: typing.List[EncounterGame]) -> typing.List[str]:
+    games_chunks = []
+    games_current_chunk = []
+    for game in games:
+        pt = str(game)
+        games_current_chunk.append(pt)
+        games_current_chunk_str = GAME_JOINER.join(games_current_chunk)
+        total_length = len(games_current_chunk_str)
+        if total_length >= MAX_MESSAGE_LENGTH_TELEGRAM:
+            games_current_chunk.pop()
+            if len(games_current_chunk) == 0:
+                games_chunks.extend(split_game_desc(game))
+            else:
+                games_chunks.append(GAME_JOINER.join(games_current_chunk))
+            games_current_chunk = []
+
+    if games_current_chunk:
+        games_chunks.append(GAME_JOINER.join(games_current_chunk))
+    return games_chunks
+
+
 # noinspection PyUnusedLocal
 def get_games_end(update: Update, context: CallbackContext) -> int:
     domain = update.message.text
@@ -121,8 +182,9 @@ def get_games_end(update: Update, context: CallbackContext) -> int:
     with EncounterNewsDB(DB_LOCATION) as db:
         games = db.show_games_outer(chat_id, domain)
 
-    res = "\n-----------------------------------------------\n".join(map(str, games))
-    update.message.reply_text(res, parse_mode="HTML", disable_web_page_preview=True)
+    msgs = games_desc_adaptive(games)
+    for msg in msgs:
+        update.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=True)
     settings_start(update, context)
     return States.SettingsChoice
 
@@ -150,7 +212,11 @@ STATE_TO_HANDLERS = {
         CommandHandler("settings", settings_start),
     ],
     States.AddDomainGetDomainName: [
-        MessageHandler(Filters.text & ~Filters.command, add_domain_end),
+        MessageHandler(Filters.text & ~Filters.command, add_domain_get_domain),
+        CommandHandler("settings", settings_start),
+    ],
+    States.AddDomainGetLanguage: [
+        MessageHandler(Filters.text & ~Filters.command, add_domain_get_language),
         CommandHandler("settings", settings_start),
     ],
     States.GetDomainGames: [
@@ -166,13 +232,6 @@ STATE_TO_HANDLERS = {
 
 def main():
     updater = Updater(API_KEY, workers=4)
-
-    # updater.dispatcher.add_handler(
-    #     MessageHandler(
-    #         Filters.text & ~Filters.command & Filters.reply,
-    #         handle_reply
-    #     )
-    # )
 
     conv_handler = ConversationHandler(
         entry_points=[

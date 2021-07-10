@@ -11,7 +11,7 @@ from sqlite3 import IntegrityError
 
 import pandas as pd
 
-from meta import Domain, EncounterGame, Rule, GameFormat
+from meta import Domain, EncounterGame, Rule, GameFormat, Language
 from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH
 
 __all__ = [
@@ -42,13 +42,21 @@ class EncounterNewsDB:
         (
         USER_ID int,
         RULE_ID varchar(10),
-        DOMAIN varchar(100),
-        PLAYER_ID int,
-        TEAM_ID int,
-        GAME_ID int,
         PRIMARY KEY (USER_ID, RULE_ID)
         )
         """, raise_on_error=False)
+
+        self.query("""
+                CREATE TABLE RULE_DESCRIPTION
+                (
+                RULE_ID varchar(10),
+                DOMAIN varchar(100),
+                PLAYER_ID int,
+                TEAM_ID int,
+                GAME_ID int,
+                PRIMARY KEY (RULE_ID)
+                )
+                """, raise_on_error=False)
 
         self.query(f"""
         CREATE TABLE DOMAIN_GAMES
@@ -116,11 +124,12 @@ class EncounterNewsDB:
                 PLAYERS_LIST_CHANGED int,
                 OLD_PLAYER_IDS varchar(500),
                 NEW_PLAYER_IDS varchar(500),
-                DESCIRPTION_SIGNIFICANTLY_CHANGED int,
+                DESCRIPTION_SIGNIFICANTLY_CHANGED int,
                 OLD_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
                 NEW_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
-                GAME_MODE int,
-                GAME_FORMAT int,
+                DESCRIPTION_CHANGED int,
+                MODE int,
+                FORMAT int,
                 PRIMARY KEY (DOMAIN, ID)
                 )
                 """, raise_on_error=False)
@@ -150,15 +159,23 @@ class EncounterNewsDB:
 
     def add_domain_rule(self, tg_id: int, domain: Domain) -> str:
         rule = Rule(domain=domain)
+        df = pd.DataFrame([rule.to_json()])
+        # res = "Rule added"
+        try:
+            df.to_sql("RULE_DESCRIPTION", self._db_conn, if_exists="append", index=False)
+        except IntegrityError:
+            pass
+            # res = "Rule already exists"
+
         df = pd.DataFrame([{
             "USER_ID": tg_id,
-            **rule.to_json(),
+            "RULE_ID": rule.rule_id,
         }])
-        res = "Rule added"
+        res = "User rule added"
         try:
             df.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
         except IntegrityError:
-            res = "You already have this domain rule"
+            res = "You already have this rule"
         return res
 
     def add_domain_to_user_outer(self, tg_id: int, domain: str) -> str:
@@ -181,15 +198,17 @@ class EncounterNewsDB:
     #         res = "You already have the domain in the watched list"
     #     return res
 
-    def is_domain_tracked(self, domain: Domain) -> bool:
+    def is_domain_tracked(self, domain: Domain, language: Language) -> bool:
         domain_normalized_url = domain.full_url
         res = self.query(
             """
             SELECT DOMAIN
             FROM DOMAIN_QUERY_STATUS
-            WHERE DOMAIN = :domain
+            WHERE 1=1
+            AND DOMAIN = :domain
+            AND LANGUAGE = :language
             """,
-            {"domain": domain_normalized_url}
+            {"domain": domain_normalized_url, "language": language}
         )
 
         if res is None or res.empty:
@@ -219,7 +238,9 @@ class EncounterNewsDB:
         res = self.query(
             """
             SELECT DOMAIN
-            FROM USER_SUBSCRIPTION
+            FROM USER_SUBSCRIPTION as us
+            INNER JOIN RULE_DESCRIPTION as rd
+            ON (us.RULE_ID = rd.RULE_ID)
             WHERE USER_ID = :tg_id
             """,
             {"tg_id": tg_id}
@@ -326,7 +347,6 @@ class EncounterNewsDB:
 
         self.games_to_db(new_games, "DOMAIN_GAMES_TEMP", "replace")
         self.find_difference()
-        # TODO: NOTIFY USERS about updates
         self.merge_into_truth_db(domains)
         self.set_update_time(domains)
         return None
@@ -385,21 +405,25 @@ class EncounterNewsDB:
             CASE WHEN temp.END_TIME <> ex.END_TIME THEN 1 ELSE 0 END as END_TIME_CHANGED,
             ex.END_TIME as OLD_END_TIME,
             temp.END_TIME as NEW_END_TIME,
-            CASE WHEN temp.PLAYER_IDS <> ex.PLAYER_IDS THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED
+            CASE WHEN temp.PLAYER_IDS <> ex.PLAYER_IDS THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED,
             ex.PLAYER_IDS as OLD_PLAYER_IDS,
             temp.PLAYER_IDS as NEW_PLAYER_IDS,
-            CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 1.0 / (ex.DESCRIPTION_REAL_LENGTH + 1) > {PERCENTAGE_CHANGE_TO_TRIGGER} THEN 1 ELSE 0 END as DESCIRPTION_SIGNIFICANTLY_CHANGED,
+            CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 
+            1.0 / (ex.DESCRIPTION_REAL_LENGTH + 1) > {PERCENTAGE_CHANGE_TO_TRIGGER} THEN 1 ELSE 0 END
+            as DESCRIPTION_SIGNIFICANTLY_CHANGED,
             ex.DESCRIPTION_TRUNCATED as OLD_DESCRIPTION_TRUNCATED,
             temp.DESCRIPTION_TRUNCATED as NEW_DESCRIPTION_TRUNCATED,
-            temp.GAME_MODE,
-            temp.GAME_FORMAT
+            CASE WHEN temp.DESCRIPTION_TRUNCATED <> ex.DESCRIPTION_TRUNCATED THEN 1 ELSE 0 END as DESCRIPTION_CHANGED,
+            temp.MODE as GAME_MODE,
+            temp.FORMAT as GAME_FORMAT
             FROM DOMAIN_GAMES_TEMP as temp
             LEFT OUTER JOIN DOMAIN_GAMES as ex
             ON (temp.DOMAIN = ex.DOMAIN AND temp.ID = ex.ID)
         )
         SELECT *
         FROM changes_all
-        WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCIRPTION_SIGNIFICANTLY_CHANGED> 0
+        WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + 
+        END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + DESCRIPTION_CHANGED > 0
         """
         res = self.query(create_query, raise_on_error=False)
 
@@ -419,47 +443,64 @@ class EncounterNewsDB:
         domains = [Domain.from_url(d) for d in domains]
         return domains
 
-    def notify_users(self) -> None:
+    def users_to_notify(self) -> pd.DataFrame:
         query = f"""
-        SELECT
-        
-        FROM DOMAIN_GAMES_DIFFERENCES as dd
-        INNER JOIN USER_SUBSCRIPTION as us
-        ON (
+        WITH rules_triggered as (
+            SELECT
+            us.RULE_ID,
+            dd.*,
+            ROW_NUMBER() OVER (PARTITION BY dd.DOMAIN, dd.ID, us.RULE_ID ORDER BY RANDOM()) as rn
+            FROM DOMAIN_GAMES_DIFFERENCES as dd
+            INNER JOIN RULE_DESCRIPTION as us
+            ON 
             (
-                1=1
-                AND us.DOMAIN = dd.DOMAIN
-                AND (
-                    1=0
-                    OR dd.GAME_NEW = 1
-                    OR dd.NAME_CHANGED = 1
-                    OR dd.PASSING_SEQUENCE_CHANGED = 1
-                    OR dd.START_TIME_CHANGED = 1
-                    OR dd.DESCIRPTION_SIGNIFICANTLY_CHANGED = 1
+                (
+                    1=1
+                    AND us.DOMAIN = dd.DOMAIN
+                    AND (
+                        1=0
+                        OR dd.GAME_NEW = 1
+                        OR dd.NAME_CHANGED = 1
+                        OR dd.PASSING_SEQUENCE_CHANGED = 1
+                        OR dd.START_TIME_CHANGED = 1
+                        OR dd.DESCRIPTION_SIGNIFICANTLY_CHANGED = 1
+                    )
+                )
+                OR 
+                (
+                    1=1
+                    AND dd.GAME_FORMAT = {GameFormat.Single.value}
+                    AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%'
+                )
+                OR
+                (
+                    1=1
+                    AND dd.GAME_FORMAT = {GameFormat.Team.value}
+                    AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%'
+                )
+                OR 
+                (
+                    1=1
+                    AND dd.DOMAIN = us.DOMAIN
+                    AND dd.ID = us.GAME_ID
                 )
             )
-            OR 
-            (
-                1=1
-                AND dd.GAME_FORMAT = {GameFormat.Single.value}
-                AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%';
-            )
-            OR
-            (
-                1=1
-                AND dd.GAME_FORMAT = {GameFormat.Team.value}
-                AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%';
-            )
-            OR 
-            (
-                1=1
-                AND dd.DOMAIN = us.DOMAIN
-                AND dd.ID = us.GAME_ID
-            )
+        ),
+        unique_rules_triggered as (
+            SELECT *
+            FROM rules_triggered
+            WHERE 1=1
+            AND rn = 1
+        )
+        select 
+        rt.*, us.USER_ID
+        FROM unique_rules_triggered as rt
+        INNER JOIN USER_SUBSCRIPTION as us
+        ON (rt.RULE_ID = us.RULE_ID)
         """
-        users_to_notify = {}
+        users_to_notify_df = self.query(query)
 
-        return None
+        return users_to_notify_df
 
     def close_connection(self) -> None:
         # noinspection PyBroadException

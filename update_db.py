@@ -4,20 +4,39 @@ DB Updater process
 
 import os
 import sys
+
+import pandas as pd
+
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path:
     sys.path.append(cur_dir)
 
+from telegram.ext import Updater
+
 from db_api import EncounterNewsDB
 from constants import DB_LOCATION, UPDATE_FREQUENCY_SECONDS
+from meta import Change
+from secrets import API_KEY
 
 
 def main() -> None:
+    updater = Updater(API_KEY, workers=1)
     with EncounterNewsDB(DB_LOCATION) as db:
         domains_due = db.find_domains_due(UPDATE_FREQUENCY_SECONDS)
         if domains_due:
             db.update_domains(domains_due)
-            db.notify_users()
+            users_to_notify = db.users_to_notify()
+        else:
+            users_to_notify = pd.DataFrame()
+
+    for _, row in users_to_notify.iterrows():
+        tg_id = row["USER_ID"]
+        # noinspection PyTypeChecker
+        change = Change.from_json(row.to_dict())
+        msg = str(change)
+        updater.bot.send_message(
+            tg_id, msg, parse_mode="HTML",
+        )
 
     return None
 
