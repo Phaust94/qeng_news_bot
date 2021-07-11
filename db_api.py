@@ -134,6 +134,15 @@ class EncounterNewsDB:
                 )
                 """, raise_on_error=False)
 
+        self.query("""
+                CREATE TABLE USER_LANGUAGE
+                (
+                USER_ID varchar(100),
+                LANGUAGE int,
+                PRIMARY KEY (USER_ID)
+                )
+                """, raise_on_error=False)
+
         return None
 
     def query(
@@ -157,8 +166,7 @@ class EncounterNewsDB:
             res = pd.DataFrame([{"Exception_text": exc_txt}])
         return res
 
-    def add_domain_rule(self, tg_id: int, domain: Domain) -> str:
-        rule = Rule(domain=domain)
+    def add_rule(self, tg_id: int, rule: Rule):
         df = pd.DataFrame([rule.to_json()])
         # res = "Rule added"
         try:
@@ -181,7 +189,14 @@ class EncounterNewsDB:
     def add_domain_to_user_outer(self, tg_id: int, domain: str) -> str:
         domain_inst = Domain.from_url(domain)
         self.track_domain(domain_inst)
-        res = self.add_domain_rule(tg_id, domain_inst)
+        rule = Rule(domain=domain_inst)
+        res = self.add_rule(tg_id, rule)
+        return res
+
+    def add_mixed_rule_outer(self, tg_id: int, domain: str, **kwargs) -> str:
+        domain_inst = Domain.from_url(domain)
+        rule = Rule(domain=domain_inst, **kwargs)
+        res = self.add_rule(tg_id, rule)
         return res
 
     # def add_domain_to_user(self, tg_id: int, domain: Domain) -> str:
@@ -250,6 +265,25 @@ class EncounterNewsDB:
 
         return domains
 
+    def get_user_rules(self, tg_id: int) -> typing.List[Rule]:
+        res = self.query(
+            """
+            SELECT rd.*
+            FROM USER_SUBSCRIPTION as us
+            INNER JOIN RULE_DESCRIPTION as rd
+            ON (us.RULE_ID = rd.RULE_ID)
+            WHERE USER_ID = :tg_id
+            """,
+            {"tg_id": tg_id}
+        )
+        rules = []
+        for _, row in res.iterrows():
+            # noinspection PyTypeChecker
+            rule = Rule.from_json(row.to_dict())
+            rules.append(rule)
+
+        return rules
+
     def game_to_db(
             self,
             game: EncounterGame,
@@ -306,6 +340,31 @@ class EncounterNewsDB:
             for _, row in res.iterrows()
         ]
         return games
+
+    def set_user_language(self, tg_id: int, language: Language) -> None:
+        row = pd.DataFrame([
+            {"USER_ID": tg_id, "LANGUAGE": language.value},
+        ])
+
+        try:
+            row.to_sql("USER_LANGUAGE", self._db_conn, if_exists="append", index=False)
+        except IntegrityError:
+            query = "UPDATE USER_LANGUAGE SET LANGUAGE = :language WHERE USER_ID = :user_id"
+            res = self.query(query, {"user_id": tg_id, "language": language}, raise_on_error=False)
+            assert res is None, res["Expcetion_text"].iloc[0]
+        return None
+
+    def get_user_language(self, tg_id: int) -> Language:
+        query = "SELECT LANGUAGE FROM USER_LANGUAGE WHERE USER_ID = :user_id"
+        res = self.query(query, {"user_id": tg_id})
+        if res.empty:
+            lang = Language.English
+            self.set_user_language(tg_id, lang)
+        else:
+            lang = res["LANGUAGE"].iloc[0]
+            lang = Language(lang)
+
+        return lang
 
     def show_games_multiple_domains(self, domains: typing.List[Domain]) -> typing.List[EncounterGame]:
         domains_tuple = tuple(domain.full_url for domain in domains)
@@ -471,12 +530,14 @@ class EncounterNewsDB:
                     1=1
                     AND dd.GAME_FORMAT = {GameFormat.Single.value}
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%'
+                    AND dd.DOMAIN = us.DOMAIN
                 )
                 OR
                 (
                     1=1
                     AND dd.GAME_FORMAT = {GameFormat.Team.value}
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%'
+                    AND dd.DOMAIN = us.DOMAIN
                 )
                 OR 
                 (
@@ -491,12 +552,24 @@ class EncounterNewsDB:
             FROM rules_triggered
             WHERE 1=1
             AND rn = 1
+        ),
+        users_triggered_rules as (
+            SELECT 
+            rt.*, us.USER_ID, 
+            ROW_NUMBER() OVER (PARTITION BY us.USER_ID, rt.DOMAIN, rt.ID ORDER BY RANDOM()) as rn_outer
+            FROM unique_rules_triggered as rt
+            INNER JOIN USER_SUBSCRIPTION as us
+            ON (rt.RULE_ID = us.RULE_ID)
+        ),
+        one_row_per_user_update as (
+            SELECT *
+            FROM users_triggered_rules
+            WHERE rn_outer = 1
         )
-        select 
-        rt.*, us.USER_ID
-        FROM unique_rules_triggered as rt
-        INNER JOIN USER_SUBSCRIPTION as us
-        ON (rt.RULE_ID = us.RULE_ID)
+        SELECT a.*, b.LANGUAGE
+        FROM one_row_per_user_update as a
+        INNER JOIN USER_LANGUAGE as b
+        ON (a.USER_ID = b.USER_ID)
         """
         users_to_notify_df = self.query(query)
 

@@ -82,6 +82,27 @@ class Language(enum.Enum):
         inst = inv_di[s]
         return inst
 
+    @classmethod
+    def full_name_dict(cls) -> typing.Dict[Language, str]:
+        di = {
+            cls.English: "English",
+            cls.Russian: "Русский",
+        }
+        return di
+
+    @classmethod
+    def from_full_name(cls, full_name: str) -> Language:
+        inv_di = {
+            v: k
+            for k, v in cls.full_name_dict().items()
+        }
+        inst = inv_di.get(full_name, cls.English)
+        return inst
+
+    @property
+    def full_name(self) -> str:
+        return self.full_name_dict()[self]
+
 
 @dataclass
 class Domain:
@@ -137,12 +158,6 @@ class Domain:
 
 
 GAME_ID_RE = r"gid=([0-9]+)"
-PARAMS = [
-    "Game format:",
-    "Passing sequence:",
-    "Start of the game:",
-    "The game completion time:",
-]
 
 
 # ABC
@@ -540,7 +555,7 @@ class EncounterGame:
         return res
 
     def __str__(self) -> str:
-        res = self.to_str(Language.Russian)
+        res = self.to_str(Language.English)
         return res
 
 
@@ -573,18 +588,70 @@ class Rule:
         }
         return j
 
+    @staticmethod
+    def _sanitize_value(value: typing.Any):
+        if value and not pd.isna(value):
+            value = int(value)
+        return value
+
     @classmethod
     def from_json(cls, j: typing.Dict[str, typing.Any]) -> Rule:
         dom = j["DOMAIN"]
         if dom:
             dom = Domain.from_url(dom)
+
         inst = cls(
             dom,
-            j["PLAYER_ID"],
-            j["TEAM_ID"],
-            j["GAME_ID"],
+            cls._sanitize_value(j["PLAYER_ID"]),
+            cls._sanitize_value(j["TEAM_ID"]),
+            cls._sanitize_value(j["GAME_ID"]),
         )
         return inst
+
+    def _str_di(self) -> typing.Dict[str, typing.Dict[Language, str]]:
+        di = {
+            "player_id": {
+                Language.Russian: f"Отслеживание игрока ID {self.player_id}",
+                Language.English: f"Player tracking (ID {self.player_id})",
+            },
+            "team_id": {
+                Language.Russian: f"Отслеживание команды ID {self.team_id}",
+                Language.English: f"Team tracking (ID {self.team_id})",
+            },
+            "game_id": {
+                Language.Russian: f"Отслеживание игры ID {self.game_id}",
+                Language.English: f"Game tracking (ID {self.game_id})",
+            },
+        }
+        return di
+
+    def to_str(self, language: Language) -> str:
+        bad_rule = f"Bad rule: " \
+                   f"domain={self.domain}, game_id={self.game_id}, player_id={self.player_id}, team_id={self.team_id}"
+        nones = [
+            an
+            for an in ("player_id", "team_id", "game_id")
+            if getattr(self, an) is not None and not pd.isna(getattr(self, an))
+        ]
+        assert self.domain is not None and len(nones) <= 1, bad_rule
+        di = self._str_di()
+        if len(nones) == 1:
+            tr = di[nones[0]][language]
+            concat = {
+                Language.Russian: "в домене",
+                Language.English: "in domain",
+            }[language]
+            msg = f"{tr} {concat} {self.domain.full_url}"
+        else:
+            concat = {
+                Language.Russian: "Отслеживание домена",
+                Language.English: "Domain tracking",
+            }[language]
+            msg = f"{concat} {self.domain.full_url}"
+        return msg
+
+    def __str__(self):
+        return self.to_str(Language.English)
 
 
 class ChangeType(enum.Enum):
@@ -759,7 +826,7 @@ class Change:
         return res
 
     def __str__(self):
-        return self.to_str(Language.Russian)
+        return self.to_str(Language.English)
 
 
 if __name__ == '__main__':

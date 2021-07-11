@@ -1,13 +1,14 @@
+"""
+Bot main code
+"""
 
-import enum
-import typing
-
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
-# from emoji import emojize
-
+import textwrap
 import os
 import sys
+
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
+
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path:
     sys.path.append(cur_dir)
@@ -15,218 +16,219 @@ if cur_dir not in sys.path:
 from secrets import API_KEY
 from version import __version__
 from db_api import EncounterNewsDB
-from constants import DB_LOCATION, MAX_MESSAGE_LENGTH_TELEGRAM, GAME_JOINER
-from meta import EncounterGame, Language
-
-
-class States(enum.IntEnum):
-    SettingsChoice = enum.auto()
-    AddDomain = enum.auto()
-    AddDomainGetDomainName = enum.auto()
-    AddDomainGetLanguage = enum.auto()
-    GetDomainGames = enum.auto()
-    GetDomainGamesGetDomainName = enum.auto()
-    # GetDomainGamesGetLanguage = enum.auto()
-    SettingsSet = enum.auto()
-
-
-SETTINGS_LIST = {
-    States.AddDomain: "Add domain to watched list",
-    States.GetDomainGames: "Get current domain games",
-    States.SettingsSet: "I'm done setting settings",
-}
-SETTINGS_LIST_INVERTED = {v: k for k, v in SETTINGS_LIST.items()}
+from constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, GAME_RULE_DOMAIN_KEY, GAME_JOINER
+from meta import Language
+from bot_constants import State, MENU_LOCALIZATION, MenuItem, localize, handle_choice,\
+    kb_from_menu_items, h, localize_dedent, find_user_lang
 
 
 # noinspection PyUnusedLocal
-def settings_start(update: Update, context: CallbackContext) -> int:
-    reply_keyboard = [
+def prompt_language(update: Update, context: CallbackContext) -> int:
+    msg = "Hello! Which language do you want me to speak?"
+    kb = [
         [v]
-        for _, v in sorted(SETTINGS_LIST.items(), key=lambda x: x[0])
+        for v in Language.full_name_dict().values()
     ]
-
     update.message.reply_text(
-        "Let's set up some settings, shall we?",
+        msg,
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
+            kb,
         )
     )
+    return State.SetLanguageGetLang
 
-    return States.SettingsChoice
+
+def store_user_lang(update: Update, context: CallbackContext) -> int:
+
+    lang = update.message.text
+    lang = Language.from_full_name(lang)
+    context.chat_data[USER_LANGUAGE_KEY] = lang.value
+    with EncounterNewsDB(DB_LOCATION) as db:
+        db.set_user_language(update.message.chat_id, lang)
+    lang_set_msg = MENU_LOCALIZATION[MenuItem.LangSet][lang]
+    lang_set_msg = lang_set_msg.format(lang.full_name)
+    update.message.reply_text(lang_set_msg)
+    welcome_msg = MENU_LOCALIZATION[MenuItem.Welcome][lang]
+    welcome_msg = textwrap.dedent(welcome_msg).replace("\n", "")
+    update.message.reply_text(welcome_msg)
+    return settings_prompt(update, context)
 
 
 # noinspection PyUnusedLocal
-def settings(update: Update, context: CallbackContext) -> int:
-    st = SETTINGS_LIST_INVERTED[update.message.text]
-    cb = STATE_TO_HANDLERS[st]
-    new_st = cb[0].callback(update, context)
-    return new_st
+def settings_prompt(update: Update, context: CallbackContext) -> int:
+
+    kb = kb_from_menu_items([
+        MenuItem.AddRule, MenuItem.DeleteRule, MenuItem.ListRules,
+    ], update, context)
+
+    msg = localize(MenuItem.MainMenu, update, context)
+
+    update.message.reply_text(
+        msg,
+        reply_markup=ReplyKeyboardMarkup(kb),
+    )
+
+    return State.SettingsChoice
+
+
+# noinspection PyUnusedLocal
+def settings_choice_done(update: Update, context: CallbackContext) -> int:
+    res = handle_choice(update, context)
+    if isinstance(res, str):
+        return globals()[res](update, context)
+    else:
+        return State.SettingsChoice
+
+
+def add_rule_promt(update: Update, context: CallbackContext) -> int:
+    kb = kb_from_menu_items([
+        MenuItem.DomainRule, MenuItem.GameRule, MenuItem.PlayerRule, MenuItem.TeamRule
+    ], update, context)
+
+    msg = localize(MenuItem.RuleTypeChoiceMenu, update, context)
+
+    update.message.reply_text(
+        msg,
+        reply_markup=ReplyKeyboardMarkup(kb),
+    )
+
+    return State.RuleTypeChoice
+
+
+def rule_type_choice_done(update: Update, context: CallbackContext) -> int:
+    res = handle_choice(update, context)
+    if isinstance(res, str):
+        return globals()[res](update, context)
+    else:
+        return State.RuleTypeChoice
+
+
+def delete_rule(update: Update, context: CallbackContext) -> int:
+    # TODO
+    return None
+
+
+def list_rules(update: Update, context: CallbackContext) -> int:
+    chat_id = update.message.chat_id
+    with EncounterNewsDB(DB_LOCATION) as db:
+        rules = db.get_user_rules(chat_id)
+    lang = find_user_lang(update, context)
+    msg = "\n".join(
+        r.to_str(lang)
+        for r in rules
+    )
+    if not msg:
+        msg = localize(MenuItem.NoRules, update, context)
+    update.message.reply_text(msg, disable_web_page_preview=True)
+    return settings_prompt(update, context)
 
 
 # noinspection PyUnusedLocal
 def settings_end(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text('Settings set')
+    msg = localize(MenuItem.MenuEnd, update, context)
+    update.message.reply_text(msg)
     return ConversationHandler.END
 
 
 # noinspection PyUnusedLocal
-def add_domain(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("Tell me domain URL you wish to follow")
-    return States.AddDomainGetDomainName
+def add_domain_rule(update: Update, context: CallbackContext) -> int:
+    msg = localize_dedent(MenuItem.DomainPrompt, update, context)
+    update.message.reply_text(msg, disable_web_page_preview=True)
+    return State.AddDomainRule
 
 
 # noinspection PyUnusedLocal
 def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
     domain = update.message.text
-    context.user_data["domain"] = domain
-
-    prompt = "Choose domain language"
-    reply_keyboard = [
-        [
-            el.flag
-            for el in Language
-            if el.flag
-        ]
-    ]
-
-    update.message.reply_text(
-        prompt,
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True
-        )
-    )
-
-    return States.AddDomainGetLanguage
-
-
-def add_domain_get_language(update: Update, context: CallbackContext) -> int:
-    chat_id = update.message.chat_id
-    language = update.message.text
-    language = Language.from_flag(language)
-    domain = context.user_data["domain"]
 
     with EncounterNewsDB(DB_LOCATION) as db:
+        # TODO: add domain validation logic
         res = db.add_domain_to_user_outer(chat_id, domain)
 
-    update.message.reply_text(res)
-    return States.SettingsChoice
+    msg = localize(MenuItem.RuleAdded, update, context)
+    update.message.reply_text(msg)
+
+    return settings_prompt(update, context)
 
 
 # noinspection PyUnusedLocal
-def get_games(update: Update, context: CallbackContext) -> int:
+def add_game_rule(update: Update, context: CallbackContext) -> int:
+    msg = localize(MenuItem.DomainChoicePrompt, update, context)
     chat_id = update.message.chat_id
+
     with EncounterNewsDB(DB_LOCATION) as db:
         domains = db.get_user_domains(chat_id)
-    reply_keyboard = [
+    kb = [
         [d]
         for d in domains
     ]
-    if not domains:
-        update.message.reply_text("You don't have any domains to get")
-        return States.SettingsChoice
-
-    if len(domains) == 1:
-        update.message.text = domains[0]
-        res = get_games_end(update, context)
-        return res
-
-    reply_keyboard.append(["All"])
-
-    update.message.reply_text(
-        "Which domain do you want to see the games for?",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True
-        )
-    )
-    return States.GetDomainGamesGetDomainName
+    update.message.reply_text(msg, reply_markup=ReplyKeyboardMarkup(kb))
+    return State.AddGameRuleGameIDPrompt
 
 
-def split_game_desc(game: EncounterGame):
-    desc = str(game)
-    pts = []
-    for x in range(0, len(desc), MAX_MESSAGE_LENGTH_TELEGRAM):
-        pt = info[x:x + MAX_MESSAGE_LENGTH_TELEGRAM]
-        pts.append(pt)
-    return pts
-
-
-def games_desc_adaptive(games: typing.List[EncounterGame]) -> typing.List[str]:
-    games_chunks = []
-    games_current_chunk = []
-    for game in games:
-        pt = str(game)
-        games_current_chunk.append(pt)
-        games_current_chunk_str = GAME_JOINER.join(games_current_chunk)
-        total_length = len(games_current_chunk_str)
-        if total_length >= MAX_MESSAGE_LENGTH_TELEGRAM:
-            games_current_chunk.pop()
-            if len(games_current_chunk) == 0:
-                games_chunks.extend(split_game_desc(game))
-            else:
-                games_chunks.append(GAME_JOINER.join(games_current_chunk))
-            games_current_chunk = []
-
-    if games_current_chunk:
-        games_chunks.append(GAME_JOINER.join(games_current_chunk))
-    return games_chunks
-
-
-# noinspection PyUnusedLocal
-def get_games_end(update: Update, context: CallbackContext) -> int:
+def add_game_rule_get_domain(update: Update, context: CallbackContext) -> int:
     domain = update.message.text
+    context.chat_data[GAME_RULE_DOMAIN_KEY] = domain
+    msg = localize_dedent(MenuItem.GameIDPrompt, update, context)
+    update.message.reply_text(msg, disable_web_page_preview=True)
+    return State.AddGameRuleFinalize
+
+
+def add_game_rule_get_game_id(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
 
-    with EncounterNewsDB(DB_LOCATION) as db:
-        games = db.show_games_outer(chat_id, domain)
+    domain = context.chat_data.get(GAME_RULE_DOMAIN_KEY)
+    if domain is None:
+        msg = localize(MenuItem.DomainEmptyError, update, context)
+        update.message.reply_text(msg)
+        return add_rule_promt(update, context)
+    game_id = update.message.text
+    # noinspection PyBroadException
+    try:
+        game_id = int(game_id)
+    except Exception:
+        msg = localize(MenuItem.GameIDInvalid, update, context)
+        update.message.reply_text(msg)
+        return add_rule_promt(update, context)
 
-    msgs = games_desc_adaptive(games)
-    for msg in msgs:
-        update.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=True)
-    settings_start(update, context)
-    return States.SettingsChoice
+    with EncounterNewsDB(DB_LOCATION) as db:
+        db.add_mixed_rule_outer(chat_id, domain, game_id=game_id)
+
+    msg = localize(MenuItem.RuleAdded, update, context)
+    update.message.reply_text(msg)
+
+    return settings_prompt(update, context)
 
 
 # noinspection PyUnusedLocal
 def error_handler(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(f"An error occurred: {{{context.error.__class__}}} {context.error}")
+    errmsg = f"Error in chat {update.message.chat_id}: {{{context.error.__class__}}} {context.error}"
+    print(errmsg)
+    msg = localize(MenuItem.Error, update, context)
+    update.message.reply_text(f"{msg} {{{context.error.__class__}}} {context.error}")
     return None
 
 
 # noinspection PyUnusedLocal
 def info(update: Update, context: CallbackContext) -> None:
-    msg = f"This is an Encounter news bot\nVersion {__version__}"
+    msg = localize(MenuItem.Info, update, context)
+    msg = f"{msg} {__version__}"
     update.message.reply_text(msg)
     return None
 
 
 STATE_TO_HANDLERS = {
-    States.SettingsChoice: [
-        MessageHandler(Filters.text & ~Filters.command, callback=settings),
-        CommandHandler("settings", settings_start),
-    ],
-    States.AddDomain: [
-        MessageHandler(Filters.text & ~Filters.command, add_domain),
-        CommandHandler("settings", settings_start),
-    ],
-    States.AddDomainGetDomainName: [
-        MessageHandler(Filters.text & ~Filters.command, add_domain_get_domain),
-        CommandHandler("settings", settings_start),
-    ],
-    States.AddDomainGetLanguage: [
-        MessageHandler(Filters.text & ~Filters.command, add_domain_get_language),
-        CommandHandler("settings", settings_start),
-    ],
-    States.GetDomainGames: [
-        MessageHandler(Filters.text & ~Filters.command, get_games),
-        CommandHandler("settings", settings_start),
-    ],
-    States.GetDomainGamesGetDomainName: [
-        MessageHandler(Filters.text & ~Filters.command, get_games_end),
-        CommandHandler("settings", settings_start),
-    ]
+    State.SetLanguage: h(prompt_language),
+    State.SetLanguageGetLang: h(store_user_lang),
+    State.InMainMenu: h(settings_prompt),
+    State.SettingsChoice: h(settings_choice_done),
+    State.RuleTypeChoice: h(rule_type_choice_done),
+    State.AddDomainRule: h(add_domain_get_domain),
+    State.AddGameRuleGameIDPrompt: h(add_game_rule_get_domain),
+    State.AddGameRuleFinalize: h(add_game_rule_get_game_id),
+
+    # State.AddDomain: h(add_domain_rule),
 }
 
 
@@ -235,8 +237,8 @@ def main():
 
     conv_handler = ConversationHandler(
         entry_points=[
-            CommandHandler('settings', settings_start),
-            CommandHandler('start', settings_start)
+            CommandHandler(MAIN_MENU_COMMAND, settings_prompt),
+            CommandHandler('start', prompt_language)
         ],
 
         states=STATE_TO_HANDLERS,

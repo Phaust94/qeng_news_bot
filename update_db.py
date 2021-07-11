@@ -15,7 +15,7 @@ from telegram.ext import Updater
 
 from db_api import EncounterNewsDB
 from constants import DB_LOCATION, UPDATE_FREQUENCY_SECONDS
-from meta import Change
+from meta import Change, Language
 from secrets import API_KEY
 
 
@@ -33,7 +33,8 @@ def main() -> None:
         tg_id = row["USER_ID"]
         # noinspection PyTypeChecker
         change = Change.from_json(row.to_dict())
-        msg = str(change)
+        lang = Language(row["LANGUAGE"])
+        msg = change.to_str(lang)
         updater.bot.send_message(
             tg_id, msg, parse_mode="HTML",
         )
