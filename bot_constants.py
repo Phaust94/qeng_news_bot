@@ -38,6 +38,7 @@ class State(enum.IntEnum):
     AddDomainRule = enum.auto()
     AddGameRuleFinalize = enum.auto()
     AddGameRuleGameIDPrompt = enum.auto()
+    WaitRuleToDelete = enum.auto()
 
 
 class MenuItem(enum.Enum):
@@ -48,6 +49,7 @@ class MenuItem(enum.Enum):
     AddRule = enum.auto()
     DeleteRule = enum.auto()
     ListRules = enum.auto()
+    MenuNoAction = enum.auto()
     MenuChoiceIncorrect = enum.auto()
     Welcome = enum.auto()
     MenuEnd = enum.auto()
@@ -63,6 +65,9 @@ class MenuItem(enum.Enum):
     DomainEmptyError = enum.auto()
     GameIDInvalid = enum.auto()
     NoRules = enum.auto()
+    ChooseRuleToDelete = enum.auto()
+    RuleIDInvalid = enum.auto()
+    RuleDeleted = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -139,12 +144,17 @@ MENU_LOCALIZATION = {
     MenuItem.DomainPrompt: {
         Language.Russian: """
         Пришлите мне ссылку на домен, за которым вы хотите следить. Например, http://kharkiv.en.cx/.
-         Если в домене разный список игр для разных языков - то пришлисте ссылку с указанием языка домена. 
-        Например, http://kharkiv.en.cx/?lang=en""",
+         Если в домене разный список игр для разных языков - то пришлите ссылку с указанием языка домена. 
+        Например, http://kharkiv.en.cx/?lang=en.
+        Я буду присылать вам только важные новости: перенос игры или большое изменение в описании. 
+        Мелкие изменения я отслеживаю только в командных / индивидуальных / игровых правилах.""",
         Language.English: """
         Send domain URL you want me to track. E.g. http://kharkiv.en.cx/.
          If a domain has different games list for different languages - then specify 
-        the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=en"""
+        the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=en.
+        I will send you only important updates: when game dates changed or if
+         there is a major change in a game description. Minor changes are only tracked
+         under team / individual / game rules.""",
     },
     MenuItem.RuleAdded: {
         Language.Russian: "Правило успешно добавлено",
@@ -156,10 +166,10 @@ MENU_LOCALIZATION = {
     },
     MenuItem.GameIDPrompt: {
         Language.Russian: """
-        Пришлите ID игры. 
+        Пришлите ID игры, которую вы хотите отслеживать. 
          Например, для игры http://kharkiv.en.cx/GameDetails.aspx?gid=72405 ID будет 72405""",
         Language.English: """
-        Send game ID. 
+        Send game ID you wish to track. 
          E.g. for game http://kharkiv.en.cx/GameDetails.aspx?gid=72405, ID is 72405""",
     },
     MenuItem.DomainEmptyError: {
@@ -173,6 +183,22 @@ MENU_LOCALIZATION = {
     MenuItem.NoRules: {
         Language.Russian: "У вас пока нет правил",
         Language.English: "You don't have any rules just yet",
+    },
+    MenuItem.MenuNoAction: {
+        Language.Russian: "Ничего",
+        Language.English: "Nothing",
+    },
+    MenuItem.ChooseRuleToDelete: {
+        Language.Russian: "Выберите правило, которое хотите удалить",
+        Language.English: "Choose rule you want to delete",
+    },
+    MenuItem.RuleIDInvalid: {
+        Language.Russian: "ID правила неверный. Попробуйте сначала.",
+        Language.English: "Rule ID invalid. Please, try again.",
+    },
+    MenuItem.RuleDeleted: {
+        Language.Russian: "Правило {} удалено успешно.",
+        Language.English: "Rule {} deleted successfully.",
     }
 }
 
@@ -185,6 +211,7 @@ def find_user_lang(update: Update, context: CallbackContext) -> Language:
     else:
         with EncounterNewsDB(DB_LOCATION) as db:
             lang = db.get_user_language(chat_id)
+        context.chat_data[USER_LANGUAGE_KEY] = lang.value
     return lang
 
 
@@ -208,6 +235,7 @@ MENU_ITEM_TO_HANDLER = {
     MenuItem.GameRule: "add_game_rule",
     MenuItem.TeamRule: None,  # TODO
     MenuItem.PlayerRule: None,  # TODO
+    MenuItem.MenuNoAction: "settings_end",
 }
 
 

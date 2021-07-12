@@ -19,6 +19,9 @@ from meta import Change, Language
 from secrets import API_KEY
 
 
+# TODO: GAME COMING UP SOON CHANGE TYPE
+# TODO: past games track comments (through new rule type)
+
 def main() -> None:
     updater = Updater(API_KEY, workers=1)
     with EncounterNewsDB(DB_LOCATION) as db:

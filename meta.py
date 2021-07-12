@@ -16,8 +16,10 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup, Tag
 from fake_useragent import UserAgent
+import feedparser
 
-from constants import MAX_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH_TG
+from constants import MAX_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH_TG, MAX_LAST_MESSAGE_LENGTH,\
+    SALT, RULE_ID_LENGTH
 
 __all__ = [
     "Domain", "EncounterGame", "Rule",
@@ -78,7 +80,7 @@ class Language(enum.Enum):
             v: k
             for k, v in cls._str_dict().items()
         }
-        inv_di[""] = Language.English
+        inv_di[""] = Language.Russian
         inst = inv_di[s]
         return inst
 
@@ -105,26 +107,87 @@ class Language(enum.Enum):
 
 
 @dataclass
+class FeedEntry:
+    topic_id: int
+    msg_id: int
+    author: str
+    msg: str
+
+    @classmethod
+    def from_json(cls, j: typing.Dict[str, typing.Any]) -> FeedEntry:
+        url = j["link"]
+        sp = urlsplit(url)
+        params = parse_qs(sp.query)
+        msg_id = int(sp[-1])
+        # noinspection PyTypeChecker
+        tid = int(params["topic"][0])
+        inst = cls(
+            tid, msg_id,
+            j["author"],
+            j["summary"],
+        )
+        return inst
+
+    def __str__(self) -> str:
+        res = f"{self.author}: {self.msg}"
+        return res
+
+
+@dataclass
+class Forum:
+    feed_entries: typing.List[FeedEntry]
+
+    @property
+    def msg_dict(self) -> typing.Dict[int, FeedEntry]:
+        di = [
+            (en.topic_id, en)
+            for en in self.feed_entries
+        ]
+        res = dict(reversed(di))
+
+        return res
+
+    @classmethod
+    def from_url(cls, forum_url: str):
+        feed = feedparser.parse(forum_url)
+        entries = [FeedEntry.from_json(e) for e in feed.entries]
+        inst = cls(entries)
+        return inst
+
+    def __getitem__(self, item) -> FeedEntry:
+        return self.msg_dict.get(item)
+
+
+@dataclass
 class Domain:
     name: str
-    language: Language = Language.English
+    language: Language = Language.Russian
     is_https: bool = False
 
     @property
-    def full_url(self) -> str:
+    def base_url(self) -> str:
         letter = "s" if self.is_https else ""
-        res = f"http{letter}://{self.name}.en.cx/?lang={self.language.to_str()}"
+        res = f"http{letter}://{self.name}.en.cx"
+        return res
+
+    @property
+    def full_url(self) -> str:
+        res = f"{self.base_url}?lang={self.language.to_str()}"
         return res
 
     @property
     def full_url_template(self) -> str:
-        letter = "s" if self.is_https else ""
-        res = f"http{letter}://{self.name}.en.cx/{{path}}?lang={self.language.to_str()}{{args}}"
+        res = f"{self.base_url}/{{path}}?lang={self.language.to_str()}{{args}}"
         return res
 
     @property
     def full_url_to_parse(self) -> str:
         res = f"{self.full_url}&design=no"
+        return res
+
+    @property
+    def forum_url(self) -> str:
+        res = self.full_url_template.format(path="export/Syndication/ForumRss.aspx", args="")
         return res
 
     @classmethod
@@ -147,8 +210,9 @@ class Domain:
         games_page = requests.get(self.full_url_to_parse, headers=hdrs).text
         soup = BeautifulSoup(games_page, 'lxml')
         tags = soup.find_all("div", class_="boxGameInfo")
+        forum = Forum.from_url(self.forum_url)
         games = [
-            EncounterGame.from_html(self, t)
+            EncounterGame.from_html(self, t, forum)
             for t in tags
         ]
         return games
@@ -317,6 +381,10 @@ class EncounterGame:
     _end_time: typing.Union[str, datetime.datetime]
     player_ids: typing.List[int]
     game_description: str
+    authors: typing.List[str]
+    forum_thread_id: int
+    last_comment_id: typing.Optional[int]
+    last_comment_text: typing.Optional[str]
 
     @property
     def game_format(self) -> GameFormat:
@@ -402,8 +470,29 @@ class EncounterGame:
             id_ = None
         return id_
 
+    @property
+    def authors_list_str(self) -> str:
+        return "%".join(self.authors)
+
+    @staticmethod
+    def authors_list_from_str(authors_list: str) -> typing.List[str]:
+        return authors_list.split("%")
+
     @classmethod
-    def from_html(cls, domain: Domain, html: Tag) -> EncounterGame:
+    def _forum_url(cls, domain: Domain, forum_thread_id: int) -> str:
+        res = domain.full_url_template.format(
+            path="Guestbook/Messages.aspx",
+            args=f"&topic={forum_thread_id}"
+        )
+        return res
+
+    @property
+    def forum_url(self) -> str:
+        res = self._forum_url(self.domain, self.forum_thread_id)
+        return res
+
+    @classmethod
+    def from_html(cls, domain: Domain, html: Tag, forum: Forum) -> EncounterGame:
         meta = html.find("a", {"id": "lnkGameTitle"})
         name = meta.text
         url = meta["href"]
@@ -433,7 +522,31 @@ class EncounterGame:
         nbsp = u'\xa0'
         game_descr = game_descr.replace(nbsp, "").replace("\n\n", "\n").replace("\n \n", "\n")
 
-        inst = cls(domain, id_, name, game_mode, format_, seq_, start, end, player_ids, game_descr)
+        authors = [
+            el.text
+            for el in spans[ind - 2].parent.find_all("a", id="lnkAuthor")
+        ]
+
+        thread_url = html.find("a", id="lnkGbTopic")["href"]
+        sp = urlsplit(thread_url)
+        params = parse_qs(sp.query)
+        # noinspection PyTypeChecker
+        tid = int(params["topic"][0])
+        entry = forum[tid]
+        if entry is not None:
+            msg_id, msg = entry.msg_id, str(entry)
+        else:
+            msg_id, msg = None, None
+
+        inst = cls(
+            domain, id_, name,
+            game_mode, format_, seq_,
+            start, end,
+            player_ids,
+            game_descr,
+            authors, tid,
+            msg_id, msg,
+        )
         return inst
 
     @classmethod
@@ -469,8 +582,12 @@ class EncounterGame:
         domain = Domain.from_url(json["DOMAIN"])
 
         desc = json["DESCRIPTION_TRUNCATED"]
-        if json["DESCRIPTION_REAL_LENGTH"] > MAX_DESCRIPTION_LENGTH and desc.endswith("..."):
-            desc = desc[:-3]
+        # if json["DESCRIPTION_REAL_LENGTH"] > MAX_DESCRIPTION_LENGTH and desc.endswith("..."):
+        #     desc = desc[:-3]
+
+        last_comment = json["LAST_MESSAGE_TEXT"]
+        # if len(last_comment) > MAX_LAST_MESSAGE_LENGTH:
+        #     last_comment = last_comment[:-3]
 
         inst = cls(
             domain,
@@ -478,6 +595,10 @@ class EncounterGame:
             GameFormat(json["FORMAT"]), PassingSequence(json["PASSING_SEQUENCE"]),
             json["START_TIME"], json["END_TIME"],
             ids_, desc,
+            cls.authors_list_from_str(json["AUTHORS"]),
+            json["FORUM_THREAD_ID"],
+            json["LAST_MESSAGE_ID"],
+            last_comment,
         )
         return inst
 
@@ -513,6 +634,16 @@ class EncounterGame:
         res = self._truncate_message(MAX_DESCRIPTION_LENGTH_TG)
         return res
 
+    @property
+    def last_comment_text_truncated(self) -> str:
+        if isinstance(self.last_comment_text, str):
+            res = self.last_comment_text[:MAX_LAST_MESSAGE_LENGTH]
+            if len(self.last_comment_text) > MAX_LAST_MESSAGE_LENGTH:
+                res += "..."
+        else:
+            res = None
+        return res
+
     def to_json(self) -> typing.Dict[str, typing.Any]:
         di = {
             "DOMAIN": self.domain.full_url,
@@ -526,6 +657,10 @@ class EncounterGame:
             "PLAYER_IDS": self.player_ids_str,
             "DESCRIPTION_TRUNCATED": self.game_description_truncated,
             "DESCRIPTION_REAL_LENGTH": len(self.game_description),
+            "AUTHORS": self.authors_list_str,
+            "FORUM_THREAD_ID": self.forum_thread_id,
+            "LAST_MESSAGE_ID": self.last_comment_id,
+            "LAST_MESSAGE_TEXT": self.last_comment_text_truncated,
         }
         return di
 
@@ -544,8 +679,22 @@ class EncounterGame:
             Language.Russian: ["С", "по"],
             Language.English: ["From", "to"],
         }[lang]
+        authors_word = {
+            Language.Russian: "Автор(ы)",
+            Language.English: "Author(s)",
+        }[lang]
+        forum_word = {
+            Language.Russian: "Форум",
+            Language.English: "Forum",
+        }[lang]
+        desc_pts = [
+            f"<b>{self.game_name}</b>",
+            f"(id <a href='{self.game_details_full_url}' target='_blank'>{self.game_id}</a>)",
+            f"[<a href='{self.forum_url}' target='_blank'>{forum_word}</a>]",
+        ]
         pts = [
-            f"<b>{self.game_name}</b> (id <a href='{self.game_details_full_url}' target='_blank'>{self.game_id}</a>)",
+            " ".join(desc_pts),
+            f"{authors_word}: {','.join(self.authors)}",
             "{}, {} ({})".format(*game_props),
             "{} {} {} {}".format(time_mod[0], self.start_time, time_mod[1], self.end_time),
             f"{mem_txt}: {len(self.player_ids)}",
@@ -569,13 +718,14 @@ class Rule:
     @property
     def rule_id(self) -> str:
         to_hash = [
+            SALT,
             self.domain or "",
             self.player_id or "",
             self.team_id or "",
             self.game_id or "",
         ]
-        to_hash = "".join(str(x) for x in to_hash)
-        rule_id = hashlib.md5(to_hash.encode()).hexdigest()[:10]
+        to_hash = "-".join(str(x) for x in to_hash)
+        rule_id = hashlib.md5(to_hash.encode()).hexdigest()[:RULE_ID_LENGTH]
         return rule_id
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
@@ -648,10 +798,11 @@ class Rule:
                 Language.English: "Domain tracking",
             }[language]
             msg = f"{concat} {self.domain.full_url}"
+        msg += f" [{self.rule_id}]"
         return msg
 
     def __str__(self):
-        return self.to_str(Language.English)
+        return self.to_str(Language.Russian)
 
 
 class ChangeType(enum.Enum):
@@ -662,6 +813,7 @@ class ChangeType(enum.Enum):
     EndTimeChanged = enum.auto()
     PlayersListChanged = enum.auto()
     DescriptionChanged = enum.auto()
+    NewForumMessage = enum.auto()
 
     @classmethod
     def localization_dict(cls) -> typing.Dict[ChangeType, typing.Dict[Language, str]]:
@@ -694,6 +846,10 @@ class ChangeType(enum.Enum):
                 Language.Russian: "Описание игры изменилось",
                 Language.English: "Game description changed",
             },
+            cls.NewForumMessage: {
+                Language.Russian: "Новое сообщение(я) на форуме. Последнее сообщение",
+                Language.English: "New forum message(ы). Last message",
+            }
         }
         return di
 
@@ -719,6 +875,7 @@ class Change:
     end_time_changed: bool
     players_list_changed: bool
     description_changed: bool
+    new_message: bool
 
     old_name: str
     new_name: str
@@ -732,11 +889,15 @@ class Change:
     new_player_ids: typing.List[int]
     old_description_truncated: str
     new_description_truncated: str
+    new_message_text: typing.Optional[str]
+    new_last_message_id: typing.Optional[int]
 
     domain: Domain
     id: int
     game_mode: GameMode
     game_format: GameFormat
+    authors: typing.List[str]
+    forum_thread_id: int
 
     @classmethod
     def from_json(cls, j: typing.Dict[str, typing.Any]) -> Change:
@@ -754,6 +915,7 @@ class Change:
         init_dict["game_mode"] = GameMode(init_dict["game_mode"])
         init_dict["game_format"] = GameFormat(init_dict["game_format"])
         init_dict["domain"] = Domain.from_url(init_dict["domain"])
+        init_dict["authors"] = EncounterGame.authors_list_from_str(init_dict["authors"])
 
         inst = cls(**init_dict)
         return inst
@@ -765,7 +927,17 @@ class Change:
                 self.id, self.new_name, self.game_mode, self.game_format,
                 self.new_passing_sequence, self.new_start_time, self.new_end_time,
                 self.new_player_ids, self.new_description_truncated,
+                self.authors, self.forum_thread_id, self.new_last_message_id,
+                self.new_message_text,
             ).to_str(language),
+        }
+        # TODO: textdiff for description
+
+        joiners = {
+            ChangeType.DescriptionChanged: {
+                Language.Russian: ("Было:", "\nСтало:"),
+                Language.English: ("Before:", "\nNow:"),
+            },
         }
 
         for ct, root in ChangeType.to_root_part().items():
@@ -778,7 +950,13 @@ class Change:
             else:
                 old_v_f = getattr(self, f"old_{root}")
                 new_v_f = getattr(self, f"new_{root}")
-            di[ct] = f"{old_v_f} -> {new_v_f}"
+
+            joiners_curr = joiners.get(ct, ("", " -> "))
+            di[ct] = " ".join([
+                joiners_curr[0], old_v_f, joiners_curr[1], new_v_f
+            ])
+
+        di[ChangeType.NewForumMessage] = self.new_message_text
 
         return di
 
@@ -790,12 +968,23 @@ class Change:
         return msg
 
     def _to_str_parts(self, language: Language) -> typing.List[str]:
-        prefix_global = {
+        update_word = {
             Language.Russian: "Обновление по игре",
             Language.English: "Game update for"
         }[language]
+        forum_word = {
+            Language.Russian: "Форум",
+            Language.English: "Forum",
+        }[language]
         full_url = EncounterGame._game_details_full_url(self.domain, self.id)
-        prefix_global = f"{prefix_global} <a href='{full_url}' target='_blank'>{self.id}</a>"
+        forum_url = EncounterGame._forum_url(self.domain, self.forum_thread_id)
+        prefix_global_pts = [
+            update_word,
+            f"<b>{self.new_name}</b>",
+            f"(id <a href='{full_url}' target='_blank'>{self.id}</a>)",
+            f"[<a href='{forum_url}' target='_blank'>{forum_word}</a>]"
+        ]
+        prefix_global = " ".join(prefix_global_pts)
 
         res = [prefix_global]
 
@@ -811,6 +1000,7 @@ class Change:
             (self.end_time_changed, ChangeType.EndTimeChanged),
             (self.description_changed, ChangeType.DescriptionChanged),
             (self.players_list_changed, ChangeType.PlayersListChanged),
+            (self.new_message, ChangeType.NewForumMessage),
         ]
 
         for change_bool, change_type in change_to_type:
@@ -831,7 +1021,8 @@ class Change:
 
 if __name__ == '__main__':
     # games_ = Domain.from_url("http://kramatorsk.en.cx").get_games()
-    games_ = Domain.from_url("http://demo.en.cx/?lang=ru")
+    games_ = Domain.from_url("http://kharkiv.en.cx/?lang=ru")
+    games_.get_games()
     # print(Domain.from_url("krak.en.cx/?lang=dido"))
     # print(list(map(str, games_)))
     # print("a")

@@ -12,7 +12,7 @@ from sqlite3 import IntegrityError
 import pandas as pd
 
 from meta import Domain, EncounterGame, Rule, GameFormat, Language
-from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH
+from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH
 
 __all__ = [
     "EncounterNewsDB",
@@ -42,6 +42,7 @@ class EncounterNewsDB:
         (
         USER_ID int,
         RULE_ID varchar(10),
+        RULE_ADDED_DATE TIMESTAMP_NTZ,
         PRIMARY KEY (USER_ID, RULE_ID)
         )
         """, raise_on_error=False)
@@ -72,6 +73,10 @@ class EncounterNewsDB:
         PLAYER_IDS varchar(500),
         DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
         DESCRIPTION_REAL_LENGTH int,
+        AUTHORS varchar(250),
+        FORUM_THREAD_ID int,
+        LAST_MESSAGE_ID int,
+        LAST_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
         PRIMARY KEY (DOMAIN, ID)
         )
         """, raise_on_error=False)
@@ -99,6 +104,10 @@ class EncounterNewsDB:
                 PLAYER_IDS varchar(500),
                 DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
                 DESCRIPTION_REAL_LENGTH int,
+                AUTHORS varchar(250),
+                FORUM_THREAD_ID int,
+                LAST_MESSAGE_ID int,
+                LAST_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
                 PRIMARY KEY (DOMAIN, ID)
                 )
                 """, raise_on_error=False)
@@ -128,8 +137,13 @@ class EncounterNewsDB:
                 OLD_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
                 NEW_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
                 DESCRIPTION_CHANGED int,
+                NEW_MESSAGE int,
+                NEW_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
+                AUTHORS varchar(250),
                 MODE int,
                 FORMAT int,
+                FORUM_THREAD_ID int,
+                NEW_LAST_MESSAGE_ID int,
                 PRIMARY KEY (DOMAIN, ID)
                 )
                 """, raise_on_error=False)
@@ -178,6 +192,7 @@ class EncounterNewsDB:
         df = pd.DataFrame([{
             "USER_ID": tg_id,
             "RULE_ID": rule.rule_id,
+            "RULE_ADDED_DATE": datetime.datetime.utcnow(),
         }])
         res = "User rule added"
         try:
@@ -252,11 +267,13 @@ class EncounterNewsDB:
     def get_user_domains(self, tg_id: int) -> typing.List[str]:
         res = self.query(
             """
-            SELECT DOMAIN
+            SELECT 
+            DOMAIN
             FROM USER_SUBSCRIPTION as us
             INNER JOIN RULE_DESCRIPTION as rd
             ON (us.RULE_ID = rd.RULE_ID)
             WHERE USER_ID = :tg_id
+            GROUP BY 1
             """,
             {"tg_id": tg_id}
         )
@@ -268,11 +285,13 @@ class EncounterNewsDB:
     def get_user_rules(self, tg_id: int) -> typing.List[Rule]:
         res = self.query(
             """
-            SELECT rd.*
+            SELECT 
+            rd.*
             FROM USER_SUBSCRIPTION as us
             INNER JOIN RULE_DESCRIPTION as rd
             ON (us.RULE_ID = rd.RULE_ID)
             WHERE USER_ID = :tg_id
+            ORDER BY us.RULE_ADDED_DATE
             """,
             {"tg_id": tg_id}
         )
@@ -350,8 +369,8 @@ class EncounterNewsDB:
             row.to_sql("USER_LANGUAGE", self._db_conn, if_exists="append", index=False)
         except IntegrityError:
             query = "UPDATE USER_LANGUAGE SET LANGUAGE = :language WHERE USER_ID = :user_id"
-            res = self.query(query, {"user_id": tg_id, "language": language}, raise_on_error=False)
-            assert res is None, res["Expcetion_text"].iloc[0]
+            res = self.query(query, {"user_id": tg_id, "language": language.value}, raise_on_error=False)
+            assert res is None, res["Exception_text"].iloc[0]
         return None
 
     def get_user_language(self, tg_id: int) -> Language:
@@ -430,7 +449,7 @@ class EncounterNewsDB:
     def set_update_time(self, domains: typing.List[Domain]) -> None:
         domains_tuple = tuple(d.full_url for d in domains)
         if len(domains_tuple) == 1:
-            domains_tuple = f"({domains_tuple[0]})"
+            domains_tuple = f"({domains_tuple[0]!r})"
         query = f"""
         UPDATE DOMAIN_QUERY_STATUS
         SET LAST_QUERY_TIME = CURRENT_TIMESTAMP
@@ -472,9 +491,16 @@ class EncounterNewsDB:
             as DESCRIPTION_SIGNIFICANTLY_CHANGED,
             ex.DESCRIPTION_TRUNCATED as OLD_DESCRIPTION_TRUNCATED,
             temp.DESCRIPTION_TRUNCATED as NEW_DESCRIPTION_TRUNCATED,
-            CASE WHEN temp.DESCRIPTION_TRUNCATED <> ex.DESCRIPTION_TRUNCATED THEN 1 ELSE 0 END as DESCRIPTION_CHANGED,
+            CASE WHEN IFNULL(temp.DESCRIPTION_TRUNCATED, '') <> IFNULL(ex.DESCRIPTION_TRUNCATED, '') 
+            THEN 1 ELSE 0 END as DESCRIPTION_CHANGED,
+            CASE WHEN IFNULL(temp.LAST_MESSAGE_ID, '') <> IFNULL(ex.LAST_MESSAGE_ID, '')
+            THEN 1 ELSE 0 END as NEW_MESSAGE,
+            temp.LAST_MESSAGE_TEXT as NEW_MESSAGE_TEXT,
+            temp.AUTHORS as AUTHORS,
             temp.MODE as GAME_MODE,
-            temp.FORMAT as GAME_FORMAT
+            temp.FORMAT as GAME_FORMAT,
+            temp.FORUM_THREAD_ID as FORUM_THREAD_ID,
+            temp.LAST_MESSAGE_ID as NEW_LAST_MESSAGE_ID
             FROM DOMAIN_GAMES_TEMP as temp
             LEFT OUTER JOIN DOMAIN_GAMES as ex
             ON (temp.DOMAIN = ex.DOMAIN AND temp.ID = ex.ID)
@@ -482,7 +508,8 @@ class EncounterNewsDB:
         SELECT *
         FROM changes_all
         WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + 
-        END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + DESCRIPTION_CHANGED > 0
+        END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + 
+        DESCRIPTION_CHANGED + NEW_MESSAGE > 0
         """
         res = self.query(create_query, raise_on_error=False)
 
@@ -574,6 +601,48 @@ class EncounterNewsDB:
         users_to_notify_df = self.query(query)
 
         return users_to_notify_df
+
+    def get_user_rule_by_id(self, tg_id: int, rule_id: str) -> typing.Optional[Rule]:
+        query = """
+        SELECT *
+        FROM USER_SUBSCRIPTION 
+        INNER JOIN RULE_DESCRIPTION
+        USING (RULE_ID)
+        WHERE 1=1
+        AND USER_ID = :user_id
+        AND RULE_ID = :rule_id
+        """
+        rule_df = self.query(
+            query, {
+                "user_id": tg_id,
+                "rule_id": rule_id,
+            },
+            raise_on_error=False
+        )
+        if rule_df is not None and "Exception_text" not in rule_df.columns:
+            res = Rule.from_json(rule_df.iloc[0].to_dict())
+        else:
+            res = None
+
+        return res
+
+    def delete_user_rule_by_id(self, tg_id: int, rule_id: str) -> None:
+        query = """
+        DELETE FROM USER_SUBSCRIPTION 
+        WHERE 1=1
+        AND USER_ID = :user_id
+        AND RULE_ID = :rule_id
+        """
+        res = self.query(
+            query, {
+                "user_id": tg_id,
+                "rule_id": rule_id,
+            },
+            raise_on_error=False
+        )
+
+        assert res is None, res["Exception_text"].iloc[0]
+        return res
 
     def close_connection(self) -> None:
         # noinspection PyBroadException
