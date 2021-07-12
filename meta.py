@@ -149,7 +149,7 @@ class Forum:
 
     @classmethod
     def from_url(cls, forum_url: str):
-        feed = feedparser.parse(forum_url)
+        feed = feedparser.parse(forum_url, agent=USER_AGENTS_FACTORY.random)
         entries = [FeedEntry.from_json(e) for e in feed.entries]
         inst = cls(entries)
         return inst
