@@ -427,7 +427,7 @@ class EncounterNewsDB:
         ]
         return games
 
-    def get_all_user_games(self, tg_id: int) -> typing.List[EncounterGame]:
+    def get_all_user_games(self, tg_id: int, n_days_in_future: int = None) -> typing.List[EncounterGame]:
         query = """
         with user_rules as (
             SELECT
@@ -471,10 +471,17 @@ class EncounterNewsDB:
         )
         SELECT *
         FROM games_matched
-        WHERE rn = 1
+        WHERE 1=1
+        AND rn = 1
+        AND START_TIME <= :end_date
         ORDER BY START_TIME
         """
-        res = self.query(query, {"user_id": tg_id})
+        if n_days_in_future is None:
+            end_date = datetime.datetime(2100, 1,  1)
+        else:
+            end_date = datetime.datetime.utcnow() + datetime.timedelta(days=n_days_in_future)
+
+        res = self.query(query, {"user_id": tg_id, "end_date": end_date})
         games = [
             EncounterGame.from_json(row)
             for _, row in res.iterrows()

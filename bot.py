@@ -19,7 +19,7 @@ from secrets import API_KEY
 from version import __version__
 from db_api import EncounterNewsDB
 from constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
-    GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError
+    GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError, DEFAULT_DAYS_IN_FUTURE
 from meta import Language
 from bot_constants import State, MENU_LOCALIZATION, MenuItem, localize, handle_choice,\
     kb_from_menu_items, localize_dedent, find_user_lang, games_desc_adaptive
@@ -308,9 +308,11 @@ def add_granular_rule_get_id(
 # noinspection PyUnusedLocal
 def get_subscribed_games(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
+    msg = localize(MenuItem.GamesInFutureWarning, update, context)
+    update.message.reply_text(msg)
 
     with EncounterNewsDB(DB_LOCATION) as db:
-        games = db.get_all_user_games(chat_id)
+        games = db.get_all_user_games(chat_id, DEFAULT_DAYS_IN_FUTURE)
 
     lang = find_user_lang(update, context)
     msgs = games_desc_adaptive(games, lang)

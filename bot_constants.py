@@ -11,7 +11,7 @@ from telegram.ext import CommandHandler, CallbackContext, MessageHandler, Filter
 
 from meta import Language, EncounterGame
 from constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
-    MAX_MESSAGE_LENGTH_TELEGRAM
+    MAX_MESSAGE_LENGTH_TELEGRAM, DEFAULT_DAYS_IN_FUTURE
 from db_api import EncounterNewsDB
 
 __all__ = [
@@ -86,6 +86,7 @@ class MenuItem(enum.Enum):
     PlayerIDPrompt = enum.auto()
     ListSubscribedGames = enum.auto()
     NoSubscribedGames = enum.auto()
+    GamesInFutureWarning = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -263,6 +264,10 @@ MENU_LOCALIZATION = {
     MenuItem.NoSubscribedGames: {
         Language.Russian: "Вы пока не следите ни за одной игрой.",
         Language.English: "You are not following any games yet.",
+    },
+    MenuItem.GamesInFutureWarning: {
+        Language.Russian: f"Показываю игры в ближайшие {DEFAULT_DAYS_IN_FUTURE} дней, на которые вы подписаны:",
+        Language.English: f"Showing games you follow, that start within the next {DEFAULT_DAYS_IN_FUTURE} days:",
     },
 
 }
