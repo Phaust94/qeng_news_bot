@@ -12,7 +12,8 @@ from sqlite3 import IntegrityError
 import pandas as pd
 
 from meta import Domain, EncounterGame, Rule, GameFormat, Language
-from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH
+from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
+    InvalidDomainError
 
 __all__ = [
     "EncounterNewsDB",
@@ -201,18 +202,21 @@ class EncounterNewsDB:
             res = "You already have this rule"
         return res
 
-    def add_domain_to_user_outer(self, tg_id: int, domain: str) -> str:
-        domain_inst = Domain.from_url(domain)
+    def add_domain_to_user_outer(self, tg_id: int, domain: str) -> Rule:
+        try:
+            domain_inst = Domain.from_url(domain)
+        except Exception:
+            raise InvalidDomainError(domain)
         self.track_domain(domain_inst)
         rule = Rule(domain=domain_inst)
-        res = self.add_rule(tg_id, rule)
-        return res
+        self.add_rule(tg_id, rule)
+        return rule
 
-    def add_mixed_rule_outer(self, tg_id: int, domain: str, **kwargs) -> str:
+    def add_mixed_rule_outer(self, tg_id: int, domain: str, **kwargs) -> Rule:
         domain_inst = Domain.from_url(domain)
         rule = Rule(domain=domain_inst, **kwargs)
-        res = self.add_rule(tg_id, rule)
-        return res
+        self.add_rule(tg_id, rule)
+        return rule
 
     # def add_domain_to_user(self, tg_id: int, domain: Domain) -> str:
     #
@@ -228,7 +232,7 @@ class EncounterNewsDB:
     #         res = "You already have the domain in the watched list"
     #     return res
 
-    def is_domain_tracked(self, domain: Domain, language: Language) -> bool:
+    def is_domain_tracked(self, domain: Domain) -> bool:
         domain_normalized_url = domain.full_url
         res = self.query(
             """
@@ -236,9 +240,8 @@ class EncounterNewsDB:
             FROM DOMAIN_QUERY_STATUS
             WHERE 1=1
             AND DOMAIN = :domain
-            AND LANGUAGE = :language
             """,
-            {"domain": domain_normalized_url, "language": language}
+            {"domain": domain_normalized_url}
         )
 
         if res is None or res.empty:
@@ -263,6 +266,16 @@ class EncounterNewsDB:
             self.game_to_db(game)
 
         return res
+
+    def track_domain_outer(self, domain: str) -> None:
+        try:
+            domain = Domain.from_url(domain)
+        except Exception:
+            raise InvalidDomainError(domain)
+        is_tracked = self.is_domain_tracked(domain)
+        if not is_tracked:
+            self.track_domain(domain)
+        return None
 
     def get_user_domains(self, tg_id: int) -> typing.List[str]:
         res = self.query(
@@ -432,7 +445,7 @@ class EncounterNewsDB:
     def merge_into_truth_db(self, domains: typing.List[Domain]) -> None:
         domains_tuple = tuple(d.full_url for d in domains)
         if len(domains_tuple) == 1:
-            domains_tuple = f"({domains_tuple[0]})"
+            domains_tuple = f"({domains_tuple[0]!r})"
         delete_query = f"""
         DELETE FROM DOMAIN_GAMES
         WHERE 1=1
@@ -483,7 +496,8 @@ class EncounterNewsDB:
             CASE WHEN temp.END_TIME <> ex.END_TIME THEN 1 ELSE 0 END as END_TIME_CHANGED,
             ex.END_TIME as OLD_END_TIME,
             temp.END_TIME as NEW_END_TIME,
-            CASE WHEN temp.PLAYER_IDS <> ex.PLAYER_IDS THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED,
+            CASE WHEN IFNULL(temp.PLAYER_IDS, '') <> IFNULL(ex.PLAYER_IDS, '')
+             THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED,
             ex.PLAYER_IDS as OLD_PLAYER_IDS,
             temp.PLAYER_IDS as NEW_PLAYER_IDS,
             CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 

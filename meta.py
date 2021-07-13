@@ -121,10 +121,11 @@ class FeedEntry:
         msg_id = int(sp[-1])
         # noinspection PyTypeChecker
         tid = int(params["topic"][0])
+        summ = BeautifulSoup(j["summary"], 'lxml').text
         inst = cls(
             tid, msg_id,
             j["author"],
-            j["summary"],
+            summ,
         )
         return inst
 
@@ -305,6 +306,7 @@ class GameMode(CustomNamedEnum):
 class GameFormat(CustomNamedEnum):
     Single = enum.auto()
     Team = enum.auto()
+    Personal = enum.auto()
 
     @classmethod
     def localization_dict(cls) -> typing.Dict[GameFormat, typing.Dict[Language, str]]:
@@ -316,6 +318,11 @@ class GameFormat(CustomNamedEnum):
             cls.Team: {
                 Language.Russian: "Командами",
                 Language.English: "Team",
+            },
+            cls.Personal: {
+                Language.Russian: "Персонально",
+                Language.English: "Personal",
+                Language.DemoEnglish: "Personal(she)",
             },
         }
         return di
@@ -417,7 +424,8 @@ class EncounterGame:
             try:
                 d, t = time.split(" ")[:2]
                 d = d[:10]
-                t = t[:8]
+                if t.endswith("("):
+                    t = t[:-2]
                 new_time = f"{d} {t}"
                 dt = datetime.datetime.strptime(new_time, "%d.%m.%Y %H:%M:%S")
             except Exception:
@@ -499,9 +507,14 @@ class EncounterGame:
         id_ = int(re.findall(GAME_ID_RE, url)[0])
 
         game_mode = html.find("img", id="ImgGameType")["title"]
+        game_mode = GameMode.from_str(game_mode)
         spans = html.find_all("span", class_="title")
-        format_, seq_ = [s.parent.find_all("span")[1].text for s in spans[:2]]
-
+        is_judged = game_mode in {GameMode.Competition, GameMode.PhotoHunt, GameMode.PhotoExtreme}
+        if not is_judged:
+            format_, seq_ = [s.parent.find_all("span")[1].text for s in spans[:2]]
+        else:
+            format_ = spans[0].parent.find_all("span")[1].text
+            seq_ = "Linear"
         local_time_id = html.select('[id*="gameInfo_enContPanel_lblYourTime"]')[0]["id"]
         all_ids = [cls.get_id_(el) for el in spans]
         ind = all_ids.index(local_time_id)
@@ -524,14 +537,18 @@ class EncounterGame:
 
         authors = [
             el.text
-            for el in spans[ind - 2].parent.find_all("a", id="lnkAuthor")
+            for el in spans[ind - 2 - is_judged].parent.find_all("a", id="lnkAuthor")
         ]
 
-        thread_url = html.find("a", id="lnkGbTopic")["href"]
-        sp = urlsplit(thread_url)
-        params = parse_qs(sp.query)
-        # noinspection PyTypeChecker
-        tid = int(params["topic"][0])
+        thread_elem = html.find("a", id="lnkGbTopic")
+        if thread_elem is not None:
+            thread_url = thread_elem["href"]
+            sp = urlsplit(thread_url)
+            params = parse_qs(sp.query)
+            # noinspection PyTypeChecker
+            tid = int(params["topic"][0])
+        else:
+            tid = None
         entry = forum[tid]
         if entry is not None:
             msg_id, msg = entry.msg_id, str(entry)
@@ -689,7 +706,7 @@ class EncounterGame:
         }[lang]
         desc_pts = [
             f"<b>{self.game_name}</b>",
-            f"(id <a href='{self.game_details_full_url}' target='_blank'>{self.game_id}</a>)",
+            f"(id <a href='{self.game_details_full_url}' target='_blank'>{int(self.game_id)}</a>)",
             f"[<a href='{self.forum_url}' target='_blank'>{forum_word}</a>]",
         ]
         pts = [
@@ -706,6 +723,28 @@ class EncounterGame:
     def __str__(self) -> str:
         res = self.to_str(Language.English)
         return res
+
+
+class RuleType(enum.Enum):
+    Game = ("GameDetails.aspx", "gid={id}")
+    Team = ("Teams/TeamDetails.aspx", "tid={id}")
+    Player = ("UserDetails.aspx", "uid={id}")
+
+    @classmethod
+    def from_attr(cls, attr: str) -> RuleType:
+        if attr.endswith("_id"):
+            attr = attr[:-3]
+        attr = attr.title()
+        inst = cls[attr]
+        return inst
+
+    def url(self, domain: Domain, id_: int) -> str:
+        args = self.value[1].format(id=id_)
+        templ = domain.full_url_template.format(
+            path=self.value[0],
+            args=f"&{args}"
+        )
+        return templ
 
 
 @dataclass
@@ -742,6 +781,8 @@ class Rule:
     def _sanitize_value(value: typing.Any):
         if value and not pd.isna(value):
             value = int(value)
+        else:
+            value = None
         return value
 
     @classmethod
@@ -761,21 +802,21 @@ class Rule:
     def _str_di(self) -> typing.Dict[str, typing.Dict[Language, str]]:
         di = {
             "player_id": {
-                Language.Russian: f"Отслеживание игрока ID {self.player_id}",
-                Language.English: f"Player tracking (ID {self.player_id})",
+                Language.Russian: f"Игрок {self.player_id}",
+                Language.English: f"Player {self.player_id}",
             },
             "team_id": {
-                Language.Russian: f"Отслеживание команды ID {self.team_id}",
-                Language.English: f"Team tracking (ID {self.team_id})",
+                Language.Russian: f"Команда {self.team_id}",
+                Language.English: f"Team {self.team_id}",
             },
             "game_id": {
-                Language.Russian: f"Отслеживание игры ID {self.game_id}",
-                Language.English: f"Game tracking (ID {self.game_id})",
+                Language.Russian: f"Игра {self.game_id}",
+                Language.English: f"Game {self.game_id})",
             },
         }
         return di
 
-    def to_str(self, language: Language) -> str:
+    def to_str(self, language: Language, add_href: bool = False) -> str:
         bad_rule = f"Bad rule: " \
                    f"domain={self.domain}, game_id={self.game_id}, player_id={self.player_id}, team_id={self.team_id}"
         nones = [
@@ -791,14 +832,35 @@ class Rule:
                 Language.Russian: "в домене",
                 Language.English: "in domain",
             }[language]
-            msg = f"{tr} {concat} {self.domain.full_url}"
+            pts = [
+                tr,
+            ]
+            pts.extend([
+                concat,
+                self.domain.name,
+            ])
+            if add_href:
+                rt = RuleType.from_attr(nones[0])
+                url = rt.url(self.domain, getattr(self, nones[0]))
+                word = {
+                    Language.Russian: "ссылка",
+                    Language.English: "link",
+                }[language]
+                url = f"(<a href={url!r} target='_blank'>{word}</a>)"
+                pts.append(url)
         else:
             concat = {
-                Language.Russian: "Отслеживание домена",
-                Language.English: "Domain tracking",
+                Language.Russian: "Домен",
+                Language.English: "Domain",
             }[language]
-            msg = f"{concat} {self.domain.full_url}"
-        msg += f" [{self.rule_id}]"
+            if add_href:
+                pts = [concat, f"<a href={self.domain.full_url!r} target='_blank'>{self.domain.name}</a>"]
+            else:
+                pts = [concat, self.domain.full_url]
+
+        if not add_href:
+            pts.append(f"[{self.rule_id}]")
+        msg = " ".join(pts)
         return msg
 
     def __str__(self):
@@ -917,6 +979,9 @@ class Change:
         init_dict["domain"] = Domain.from_url(init_dict["domain"])
         init_dict["authors"] = EncounterGame.authors_list_from_str(init_dict["authors"])
 
+        if init_dict["forum_thread_id"] is not None:
+            init_dict["forum_thread_id"] = int(init_dict["forum_thread_id"])
+
         inst = cls(**init_dict)
         return inst
 
@@ -935,9 +1000,17 @@ class Change:
 
         joiners = {
             ChangeType.DescriptionChanged: {
-                Language.Russian: ("Было:", "\nСтало:"),
-                Language.English: ("Before:", "\nNow:"),
+                Language.Russian: ("Было:\n", "\nСтало:\n"),
+                Language.English: ("Before:\n", "\nNow:\n"),
             },
+            ChangeType.PlayersListChanged: {
+                Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: "),
+                Language.English: ("\nNew participants: ", "\nDismissed participants: "),
+            }
+        }
+        default_joiners = {
+            Language.Russian: ("", " -> "),
+            Language.English: ("", " -> "),
         }
 
         for ct, root in ChangeType.to_root_part().items():
@@ -947,16 +1020,19 @@ class Change:
                 else:
                     old_v_f = None
                 new_v_f = self.new_passing_sequence.localized_name(language)
+            elif ct is ChangeType.PlayersListChanged:
+                old_v_f = str(len(set(self.new_player_ids).difference(self.old_player_ids)))
+                new_v_f = str(len(set(self.old_player_ids).difference(self.new_player_ids)))
             else:
                 old_v_f = getattr(self, f"old_{root}")
                 new_v_f = getattr(self, f"new_{root}")
 
-            joiners_curr = joiners.get(ct, ("", " -> "))
+            joiners_curr = joiners.get(ct, default_joiners)[language]
             di[ct] = " ".join([
                 joiners_curr[0], old_v_f, joiners_curr[1], new_v_f
             ])
 
-        di[ChangeType.NewForumMessage] = self.new_message_text
+        di[ChangeType.NewForumMessage] = BeautifulSoup(self.new_message_text, 'lxml').text
 
         return di
 
@@ -981,7 +1057,7 @@ class Change:
         prefix_global_pts = [
             update_word,
             f"<b>{self.new_name}</b>",
-            f"(id <a href='{full_url}' target='_blank'>{self.id}</a>)",
+            f"(id <a href='{full_url}' target='_blank'>{int(self.id)}</a>)",
             f"[<a href='{forum_url}' target='_blank'>{forum_word}</a>]"
         ]
         prefix_global = " ".join(prefix_global_pts)

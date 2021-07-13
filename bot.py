@@ -5,6 +5,7 @@ Bot main code
 import textwrap
 import os
 import sys
+import functools
 
 import typing
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -18,10 +19,11 @@ from secrets import API_KEY
 from version import __version__
 from db_api import EncounterNewsDB
 from constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
-    GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH
+    GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError
 from meta import Language
 from bot_constants import State, MENU_LOCALIZATION, MenuItem, localize, handle_choice,\
-    kb_from_menu_items, h, localize_dedent, find_user_lang
+    kb_from_menu_items, localize_dedent, find_user_lang
+from bot_constants import h as h_full
 
 
 # noinspection PyUnusedLocal
@@ -123,27 +125,27 @@ def delete_rule(update: Update, context: CallbackContext) -> int:
         return settings_prompt(update, context)
 
 
-def _find_rules(update: Update, context: CallbackContext) -> typing.List[str]:
+def _find_rules(update: Update, context: CallbackContext, add_href: bool = False) -> typing.List[str]:
     chat_id = update.message.chat_id
     with EncounterNewsDB(DB_LOCATION) as db:
         rules = db.get_user_rules(chat_id)
     lang = find_user_lang(update, context)
     rules = [
-        r.to_str(lang)
+        r.to_str(lang, add_href)
         for r in rules
     ]
     return rules
 
 
 def list_rules(update: Update, context: CallbackContext) -> int:
-    rules = _find_rules(update, context)
+    rules = _find_rules(update, context, add_href=True)
     msg = "\n".join(
         r
         for r in rules
     )
     if not rules:
         msg = localize(MenuItem.NoRules, update, context)
-    update.message.reply_text(msg, disable_web_page_preview=True)
+    update.message.reply_text(msg, disable_web_page_preview=True, parse_mode="HTML")
     return settings_prompt(update, context)
 
 
@@ -156,6 +158,8 @@ def settings_end(update: Update, context: CallbackContext) -> int:
 
 # noinspection PyUnusedLocal
 def add_domain_rule(update: Update, context: CallbackContext) -> int:
+    desc = localize_dedent(MenuItem.RoughRuleDescription, update, context)
+    update.message.reply_text(desc, reply_markup=ReplyKeyboardRemove())
     msg = localize_dedent(MenuItem.DomainPrompt, update, context)
     update.message.reply_text(msg, disable_web_page_preview=True)
     return State.AddDomainRule
@@ -168,9 +172,16 @@ def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
 
     with EncounterNewsDB(DB_LOCATION) as db:
         # TODO: add domain validation logic
-        res = db.add_domain_to_user_outer(chat_id, domain)
+        try:
+            rule = db.add_domain_to_user_outer(chat_id, domain)
+        except InvalidDomainError:
+            msg = localize(MenuItem.DomainInvalid, update, context)
+            update.message.reply_text(msg)
+            return settings_prompt(update, context)
 
     msg = localize(MenuItem.RuleAdded, update, context)
+    lang = find_user_lang(update, context)
+    msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
     update.message.reply_text(msg)
 
     return settings_prompt(update, context)
@@ -200,35 +211,72 @@ def wait_rule_to_delete(update: Update, context: CallbackContext) -> int:
 
         db.delete_user_rule_by_id(chat_id, rule_id)
     msg = localize(MenuItem.RuleDeleted, update, context)
-    msg = msg.format(rule.to_str(user_lang))
-    update.message.reply_text(msg)
+    msg = msg.format(rule.to_str(user_lang), disable_web_page_preview=True)
+    update.message.reply_text(msg, disable_web_page_preview=True)
     return settings_prompt(update, context)
 
 
 # noinspection PyUnusedLocal
-def add_game_rule(update: Update, context: CallbackContext) -> int:
+def add_granular_rule(
+        update: Update,
+        context: CallbackContext,
+        wait_domain_state: State,
+) -> int:
+    desc = localize_dedent(MenuItem.GranularRuleDescription, update, context)
+    update.message.reply_text(desc)
     msg = localize(MenuItem.DomainChoicePrompt, update, context)
     chat_id = update.message.chat_id
 
     with EncounterNewsDB(DB_LOCATION) as db:
         domains = db.get_user_domains(chat_id)
+
+    another_domain = localize(MenuItem.AnotherDomain, update, context)
     kb = [
         [d]
         for d in domains
-    ]
+    ] + [[another_domain]]
     update.message.reply_text(msg, reply_markup=ReplyKeyboardMarkup(kb))
-    return State.AddGameRuleGameIDPrompt
+    return wait_domain_state
 
 
-def add_game_rule_get_domain(update: Update, context: CallbackContext) -> int:
+def add_granular_rule_get_domain(
+        update: Update, context: CallbackContext,
+        prompt: MenuItem, promt_state: State, wait_state: State,
+) -> int:
     domain = update.message.text
+    if domain == localize(MenuItem.AnotherDomain, update, context):
+        msg = localize_dedent(MenuItem.DomainPrompt, update, context)
+        update.message.reply_text(msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
+        return wait_state
+    else:
+        return accept_domain_granular_rule(update, context, prompt, promt_state)
+
+
+def accept_domain_granular_rule(
+        update: Update, context: CallbackContext,
+        prompt: MenuItem, state: State,
+) -> int:
+    domain = update.message.text
+
+    with EncounterNewsDB(DB_LOCATION) as db:
+        try:
+            db.track_domain_outer(domain)
+        except InvalidDomainError:
+            msg = localize(MenuItem.DomainInvalid, update, context)
+            update.message.reply_text(msg)
+            return settings_prompt(update, context)
+
     context.chat_data[GAME_RULE_DOMAIN_KEY] = domain
-    msg = localize_dedent(MenuItem.GameIDPrompt, update, context)
+    msg = localize_dedent(prompt, update, context)
     update.message.reply_text(msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
-    return State.AddGameRuleFinalize
+    return state
 
 
-def add_game_rule_get_game_id(update: Update, context: CallbackContext) -> int:
+def add_granular_rule_get_id(
+        update: Update,
+        context: CallbackContext,
+        key: str
+) -> int:
     chat_id = update.message.chat_id
 
     domain = context.chat_data.pop(GAME_RULE_DOMAIN_KEY)
@@ -241,14 +289,17 @@ def add_game_rule_get_game_id(update: Update, context: CallbackContext) -> int:
     try:
         game_id = int(game_id)
     except Exception:
-        msg = localize(MenuItem.GameIDInvalid, update, context)
+        msg = localize(MenuItem.IDInvalid, update, context)
         update.message.reply_text(msg)
         return add_rule_promt(update, context)
 
     with EncounterNewsDB(DB_LOCATION) as db:
-        db.add_mixed_rule_outer(chat_id, domain, game_id=game_id)
+        kwargs = {key: game_id}
+        rule = db.add_mixed_rule_outer(chat_id, domain, **kwargs)
 
     msg = localize(MenuItem.RuleAdded, update, context)
+    lang = find_user_lang(update, context)
+    msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
     update.message.reply_text(msg)
 
     return settings_prompt(update, context)
@@ -271,6 +322,8 @@ def info(update: Update, context: CallbackContext) -> None:
     return None
 
 
+h = functools.partial(h_full, cancel_func=settings_prompt)
+
 STATE_TO_HANDLERS = {
     State.SetLanguage: h(prompt_language),
     State.SetLanguageGetLang: h(store_user_lang),
@@ -278,12 +331,50 @@ STATE_TO_HANDLERS = {
     State.SettingsChoice: h(settings_choice_done),
     State.RuleTypeChoice: h(rule_type_choice_done),
     State.AddDomainRule: h(add_domain_get_domain),
-    State.AddGameRuleGameIDPrompt: h(add_game_rule_get_domain),
-    State.AddGameRuleFinalize: h(add_game_rule_get_game_id),
+    # State.AddGranularRuleDomainPrompt: h(add_game_rule_get_domain),
+    # State.AddGameRuleGameIDPompt: h(add_game_rule_get_game_id),
     State.WaitRuleToDelete: h(wait_rule_to_delete),
+    # State.WaitDomainNameForGameID: h(accept_domain_for_game_id),
 
     # State.AddDomain: h(add_domain_rule),
 }
+
+GRANULAR_RULES = [
+    (
+        "game", MenuItem.GameIDPrompt,
+        State.ChooseDomainNameForGameID, State.WaitDomainNameForGameID, State.WaitGameIDForGameID
+    ),
+    (
+        "team", MenuItem.TeamIDPrompt,
+        State.ChooseDomainNameForTeamID, State.WaitDomainNameForTeamID, State.WaitTeamIDForTeamID
+    ),
+    (
+        "player", MenuItem.PlayerIDPrompt,
+        State.ChooseDomainNameForUserID, State.WaitDomainNameForUserID, State.WaitUserIDForUserID
+    ),
+
+]
+for name, pr, cdn, wdn, wid in GRANULAR_RULES:
+    func_name = f"add_{name}_rule"
+    func = functools.partial(
+        add_granular_rule,
+        wait_domain_state=cdn,
+    )
+    globals()[func_name] = func
+
+    accept_domain_pt = functools.partial(
+        accept_domain_granular_rule,
+        prompt=pr, state=wid
+    )
+    cdn_handler = functools.partial(
+        add_granular_rule_get_domain,
+        prompt=pr, promt_state=wid,
+        wait_state=wdn,
+    )
+    get_id = functools.partial(add_granular_rule_get_id, key=f"{name}_id")
+    STATE_TO_HANDLERS[cdn] = h(cdn_handler)
+    STATE_TO_HANDLERS[wdn] = h(accept_domain_pt)
+    STATE_TO_HANDLERS[wid] = h(get_id)
 
 
 def main():

@@ -22,6 +22,7 @@ from secrets import API_KEY
 # TODO: GAME COMING UP SOON CHANGE TYPE
 # TODO: past games track comments (through new rule type)
 
+
 def main() -> None:
     updater = Updater(API_KEY, workers=1)
     with EncounterNewsDB(DB_LOCATION) as db:
@@ -41,6 +42,7 @@ def main() -> None:
         updater.bot.send_message(
             tg_id, msg, parse_mode="HTML",
         )
+    print(users_to_notify.shape[0], "message(s) sent")
 
     return None
 
