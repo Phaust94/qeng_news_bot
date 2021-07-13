@@ -428,7 +428,7 @@ class EncounterNewsDB:
         return games
 
     def get_all_user_games(self, tg_id: int, n_days_in_future: int = None) -> typing.List[EncounterGame]:
-        query = """
+        query = f"""
         with user_rules as (
             SELECT
             RULE_ID
@@ -463,8 +463,16 @@ class EncounterNewsDB:
                     AND (
                         1=0
                         OR IFNULL(rd.GAME_ID, -1) = dg.ID
-                        OR dg.PLAYER_IDS LIKE '%' || IFNULL(rd.PLAYER_ID, -1) || '%'
-                        OR dg.PLAYER_IDS LIKE '%' || IFNULL(rd.TEAM_ID, -1) || '%'
+                        OR (
+                            dg.FORMAT = {GameFormat.Single.value}
+                            AND
+                            dg.PLAYER_IDS LIKE '%' || IFNULL(rd.PLAYER_ID, -1) || '%'
+                        )
+                        OR (
+                            dg.FORMAT = {GameFormat.Team.value}
+                            AND
+                            dg.PLAYER_IDS LIKE '%' || IFNULL(rd.TEAM_ID, -1) || '%'
+                        )
                     )
                 )
             )
