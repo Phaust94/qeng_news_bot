@@ -52,36 +52,6 @@ def get_games(update: Update, context: CallbackContext) -> int:
     return State.GetDomainGamesGetDomainName
 
 
-def split_game_desc(game: EncounterGame):
-    desc = str(game)
-    pts = []
-    for x in range(0, len(desc), MAX_MESSAGE_LENGTH_TELEGRAM):
-        pt = desc[x:x + MAX_MESSAGE_LENGTH_TELEGRAM]
-        pts.append(pt)
-    return pts
-
-
-def games_desc_adaptive(games: typing.List[EncounterGame]) -> typing.List[str]:
-    games_chunks = []
-    games_current_chunk = []
-    for game in games:
-        pt = str(game)
-        games_current_chunk.append(pt)
-        games_current_chunk_str = GAME_JOINER.join(games_current_chunk)
-        total_length = len(games_current_chunk_str)
-        if total_length >= MAX_MESSAGE_LENGTH_TELEGRAM:
-            games_current_chunk.pop()
-            if len(games_current_chunk) == 0:
-                games_chunks.extend(split_game_desc(game))
-            else:
-                games_chunks.append(GAME_JOINER.join(games_current_chunk))
-            games_current_chunk = []
-
-    if games_current_chunk:
-        games_chunks.append(GAME_JOINER.join(games_current_chunk))
-    return games_chunks
-
-
 # noinspection PyUnusedLocal
 def get_games_end(update: Update, context: CallbackContext) -> int:
     domain = update.message.text

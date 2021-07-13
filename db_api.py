@@ -158,6 +158,18 @@ class EncounterNewsDB:
                 )
                 """, raise_on_error=False)
 
+        db.query("""
+                CREATE VIEW RULE_DESCRIPTION_V
+                AS
+                SELECT
+                *, 
+                CASE 
+                WHEN PLAYER_ID IS NULL AND TEAM_ID IS NULL AND GAME_ID IS NULL THEN 1
+                ELSE 0 
+                END as IS_COARSE_RULE
+                FROM RULE_DESCRIPTION
+                """, raise_on_error=False)
+
         return None
 
     def query(
@@ -415,6 +427,60 @@ class EncounterNewsDB:
         ]
         return games
 
+    def get_all_user_games(self, tg_id: int) -> typing.List[EncounterGame]:
+        query = """
+        with user_rules as (
+            SELECT
+            RULE_ID
+            FROM USER_SUBSCRIPTION
+            WHERE USER_ID = :user_id
+        ),
+        rules_desc as (
+            SELECT 
+            rd.*
+            FROM user_rules as ur
+            INNER JOIN RULE_DESCRIPTION_V as rd
+            USING (RULE_ID)
+        ),
+        games_matched as (
+            SELECT 
+            dg.*,
+            ROW_NUMBER() OVER (PARTITION BY dg.DOMAIN, dg.ID ORDER BY RANDOM()) as rn
+            FROM rules_desc as rd
+            INNER JOIN DOMAIN_GAMES as dg
+            ON 
+            (
+                1=0
+                OR (
+                    1=1
+                    AND rd.IS_COARSE_RULE = 1
+                    AND rd.DOMAIN = dg.DOMAIN
+                )
+                OR (
+                    1=1
+                    AND rd.IS_COARSE_RULE = 0
+                    AND rd.DOMAIN = dg.DOMAIN
+                    AND (
+                        1=0
+                        OR IFNULL(rd.GAME_ID, -1) = dg.ID
+                        OR dg.PLAYER_IDS LIKE '%' || IFNULL(rd.PLAYER_ID, -1) || '%'
+                        OR dg.PLAYER_IDS LIKE '%' || IFNULL(rd.TEAM_ID, -1) || '%'
+                    )
+                )
+            )
+        )
+        SELECT *
+        FROM games_matched
+        WHERE rn = 1
+        ORDER BY START_TIME
+        """
+        res = self.query(query, {"user_id": tg_id})
+        games = [
+            EncounterGame.from_json(row)
+            for _, row in res.iterrows()
+        ]
+        return games
+
     def show_games_outer(self, tg_id: int, domain: str) -> typing.List[EncounterGame]:
         if domain == "All":
             domains = self.get_user_domains(tg_id)
@@ -551,7 +617,7 @@ class EncounterNewsDB:
             dd.*,
             ROW_NUMBER() OVER (PARTITION BY dd.DOMAIN, dd.ID, us.RULE_ID ORDER BY RANDOM()) as rn
             FROM DOMAIN_GAMES_DIFFERENCES as dd
-            INNER JOIN RULE_DESCRIPTION as us
+            INNER JOIN RULE_DESCRIPTION_V as us
             ON 
             (
                 (
@@ -565,6 +631,7 @@ class EncounterNewsDB:
                         OR dd.START_TIME_CHANGED = 1
                         OR dd.DESCRIPTION_SIGNIFICANTLY_CHANGED = 1
                     )
+                    AND us.IS_COARSE_RULE = 1
                 )
                 OR 
                 (
@@ -572,6 +639,7 @@ class EncounterNewsDB:
                     AND dd.GAME_FORMAT = {GameFormat.Single.value}
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%'
                     AND dd.DOMAIN = us.DOMAIN
+                    AND us.IS_COARSE_RULE = 0
                 )
                 OR
                 (
@@ -579,12 +647,14 @@ class EncounterNewsDB:
                     AND dd.GAME_FORMAT = {GameFormat.Team.value}
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%'
                     AND dd.DOMAIN = us.DOMAIN
+                    AND us.IS_COARSE_RULE = 0
                 )
                 OR 
                 (
                     1=1
                     AND dd.DOMAIN = us.DOMAIN
                     AND dd.ID = us.GAME_ID
+                    AND us.IS_COARSE_RULE = 0
                 )
             )
         ),

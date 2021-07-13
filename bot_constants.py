@@ -9,9 +9,9 @@ import textwrap
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, MessageHandler, Filters
 
-
-from meta import Language
-from constants import USER_LANGUAGE_KEY, DB_LOCATION
+from meta import Language, EncounterGame
+from constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
+    MAX_MESSAGE_LENGTH_TELEGRAM
 from db_api import EncounterNewsDB
 
 __all__ = [
@@ -20,7 +20,7 @@ __all__ = [
     "localize", "localize_dedent",
     "handle_choice",
     "kb_from_menu_items",
-    "h",
+    "h", "games_desc_adaptive",
 ]
 
 
@@ -84,6 +84,8 @@ class MenuItem(enum.Enum):
     DomainInvalid = enum.auto()
     TeamIDPrompt = enum.auto()
     PlayerIDPrompt = enum.auto()
+    ListSubscribedGames = enum.auto()
+    NoSubscribedGames = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -254,6 +256,15 @@ MENU_LOCALIZATION = {
     Send player ID you wish to follow (for single games). 
      E.g. for player http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID is 1724452""",
     },
+    MenuItem.ListSubscribedGames: {
+        Language.Russian: "Игры в списке слежения",
+        Language.English: "Tracked games",
+    },
+    MenuItem.NoSubscribedGames: {
+        Language.Russian: "Вы пока не следите ни за одной игрой.",
+        Language.English: "You are not following any games yet.",
+    },
+
 }
 
 
@@ -290,6 +301,7 @@ MENU_ITEM_TO_HANDLER = {
     MenuItem.TeamRule: "add_team_rule",
     MenuItem.PlayerRule: "add_player_rule",
     MenuItem.MenuNoAction: "settings_end",
+    MenuItem.ListSubscribedGames: "get_subscribed_games",
 }
 
 
@@ -334,3 +346,36 @@ def h(
             CommandHandler("cancel", callback=cancel_func)
     ]
     return res
+
+
+def split_game_desc(game: EncounterGame, language: Language):
+    desc = game.to_str(language)
+    pts = []
+    for x in range(0, len(desc), MAX_MESSAGE_LENGTH_TELEGRAM):
+        pt = desc[x:x + MAX_MESSAGE_LENGTH_TELEGRAM]
+        pts.append(pt)
+    return pts
+
+
+def games_desc_adaptive(
+        games: typing.List[EncounterGame],
+        language: Language,
+) -> typing.List[str]:
+    games_chunks = []
+    games_current_chunk = []
+    for game in games:
+        pt = game.to_str(language)
+        games_current_chunk.append(pt)
+        games_current_chunk_str = GAME_JOINER.join(games_current_chunk)
+        total_length = len(games_current_chunk_str)
+        if total_length >= MAX_MESSAGE_LENGTH_TELEGRAM:
+            games_current_chunk.pop()
+            if len(games_current_chunk) == 0:
+                games_chunks.extend(split_game_desc(game, language))
+            else:
+                games_chunks.append(GAME_JOINER.join(games_current_chunk))
+            games_current_chunk = []
+
+    if games_current_chunk:
+        games_chunks.append(GAME_JOINER.join(games_current_chunk))
+    return games_chunks

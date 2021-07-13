@@ -228,6 +228,10 @@ GAME_ID_RE = r"gid=([0-9]+)"
 # ABC
 class CustomNamedEnum(enum.Enum):
 
+    @classmethod
+    def _default_value(cls) -> CustomNamedEnum:
+        raise NotImplementedError
+
     def localized_name(self, language: Language) -> str:
         res = self.localization_dict()[self][language]
         return res
@@ -239,7 +243,7 @@ class CustomNamedEnum(enum.Enum):
             for type_, loc_ in cls.localization_dict().items()
             for lang, loc_name in loc_.items()
         }
-        inst = localized_name_to_inst[s]
+        inst = localized_name_to_inst.get(s, cls._default_value())
         return inst
 
     @classmethod
@@ -257,6 +261,10 @@ class GameMode(CustomNamedEnum):
     GeoCaching = enum.auto()
     WetWars = enum.auto()
     Competition = enum.auto()
+
+    @classmethod
+    def _default_value(cls) -> GameMode:
+        return cls.Points
 
     @classmethod
     def localization_dict(cls) -> typing.Dict[GameMode, typing.Dict[Language, str]]:
@@ -309,6 +317,10 @@ class GameFormat(CustomNamedEnum):
     Personal = enum.auto()
 
     @classmethod
+    def _default_value(cls) -> GameFormat:
+        return cls.Single
+
+    @classmethod
     def localization_dict(cls) -> typing.Dict[GameFormat, typing.Dict[Language, str]]:
         di = {
             cls.Single: {
@@ -348,6 +360,10 @@ class PassingSequence(CustomNamedEnum):
     Custom = enum.auto()
     Random = enum.auto()
     DynamicallyRandom = enum.auto()
+
+    @classmethod
+    def _default_value(cls) -> PassingSequence:
+        return cls.Linear
 
     @classmethod
     def localization_dict(cls) -> typing.Dict[PassingSequence, typing.Dict[Language, str]]:
@@ -711,7 +727,7 @@ class EncounterGame:
         ]
         pts = [
             " ".join(desc_pts),
-            f"{authors_word}: {','.join(self.authors)}",
+            f"{authors_word}: {', '.join(self.authors)}",
             "{}, {} ({})".format(*game_props),
             "{} {} {} {}".format(time_mod[0], self.start_time, time_mod[1], self.end_time),
             f"{mem_txt}: {len(self.player_ids)}",
@@ -968,12 +984,24 @@ class Change:
             attr: Field
             init_dict[attr.name.lower()] = j[attr.name.upper()]
 
-        if init_dict["old_passing_sequence"]:
+        if init_dict["old_passing_sequence"] and not pd.isna(init_dict["old_passing_sequence"]):
             init_dict["old_passing_sequence"] = PassingSequence(init_dict["old_passing_sequence"])
-        init_dict["new_passing_sequence"] = PassingSequence(init_dict["new_passing_sequence"])
-        if init_dict["old_player_ids"]:
+        else:
+            init_dict["old_passing_sequence"] = PassingSequence.Linear
+        if init_dict["new_passing_sequence"] and not pd.isna(init_dict["new_passing_sequence"]):
+            init_dict["new_passing_sequence"] = PassingSequence(init_dict["new_passing_sequence"])
+        else:
+            init_dict["new_passing_sequence"] = PassingSequence.Linear
+        if init_dict["old_player_ids"] and not pd.isna(init_dict["old_player_ids"]):
             init_dict["old_player_ids"] = EncounterGame.player_ids_from_string(init_dict["old_player_ids"])
-        init_dict["new_player_ids"] = EncounterGame.player_ids_from_string(init_dict["new_player_ids"])
+        else:
+            init_dict["old_player_ids"] = []
+
+        if init_dict["new_player_ids"] and not pd.isna(init_dict["new_player_ids"]):
+            init_dict["new_player_ids"] = EncounterGame.player_ids_from_string(init_dict["new_player_ids"])
+        else:
+            init_dict["new_player_ids"] = []
+
         init_dict["game_mode"] = GameMode(init_dict["game_mode"])
         init_dict["game_format"] = GameFormat(init_dict["game_format"])
         init_dict["domain"] = Domain.from_url(init_dict["domain"])
@@ -1000,8 +1028,8 @@ class Change:
 
         joiners = {
             ChangeType.DescriptionChanged: {
-                Language.Russian: ("Было:\n", "\nСтало:\n"),
-                Language.English: ("Before:\n", "\nNow:\n"),
+                Language.Russian: ("Было:\n", "Стало:\n"),
+                Language.English: ("Before:\n", "Now:\n"),
             },
             ChangeType.PlayersListChanged: {
                 Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: "),
@@ -1018,7 +1046,7 @@ class Change:
                 if self.old_passing_sequence:
                     old_v_f = self.old_passing_sequence.localized_name(language)
                 else:
-                    old_v_f = None
+                    old_v_f = str(None)
                 new_v_f = self.new_passing_sequence.localized_name(language)
             elif ct is ChangeType.PlayersListChanged:
                 old_v_f = str(len(set(self.new_player_ids).difference(self.old_player_ids)))
@@ -1029,10 +1057,10 @@ class Change:
 
             joiners_curr = joiners.get(ct, default_joiners)[language]
             di[ct] = " ".join([
-                joiners_curr[0], old_v_f, joiners_curr[1], new_v_f
+                joiners_curr[0], str(old_v_f), joiners_curr[1], str(new_v_f)
             ])
 
-        di[ChangeType.NewForumMessage] = BeautifulSoup(self.new_message_text, 'lxml').text
+        di[ChangeType.NewForumMessage] = str(BeautifulSoup(self.new_message_text, 'lxml').text)
 
         return di
 
@@ -1040,7 +1068,7 @@ class Change:
         prefix = change_type.localization_dict()[change_type][language]
         cont_dict = self._to_str_content(language)
         cont = cont_dict[change_type]
-        msg = f"{prefix}: {cont}"
+        msg = f"<u>{prefix}</u>: {cont}"
         return msg
 
     def _to_str_parts(self, language: Language) -> typing.List[str]:

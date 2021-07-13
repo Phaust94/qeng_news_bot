@@ -22,7 +22,7 @@ from constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
     GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError
 from meta import Language
 from bot_constants import State, MENU_LOCALIZATION, MenuItem, localize, handle_choice,\
-    kb_from_menu_items, localize_dedent, find_user_lang
+    kb_from_menu_items, localize_dedent, find_user_lang, games_desc_adaptive
 from bot_constants import h as h_full
 
 
@@ -62,7 +62,7 @@ def store_user_lang(update: Update, context: CallbackContext) -> int:
 def settings_prompt(update: Update, context: CallbackContext) -> int:
 
     kb = kb_from_menu_items([
-        MenuItem.AddRule, MenuItem.DeleteRule, MenuItem.ListRules, MenuItem.MenuNoAction
+        MenuItem.AddRule, MenuItem.DeleteRule, MenuItem.ListRules, MenuItem.ListSubscribedGames, MenuItem.MenuNoAction
     ], update, context)
 
     msg = localize(MenuItem.MainMenu, update, context)
@@ -301,6 +301,28 @@ def add_granular_rule_get_id(
     lang = find_user_lang(update, context)
     msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
     update.message.reply_text(msg)
+
+    return settings_prompt(update, context)
+
+
+# noinspection PyUnusedLocal
+def get_subscribed_games(update: Update, context: CallbackContext) -> int:
+    chat_id = update.message.chat_id
+
+    with EncounterNewsDB(DB_LOCATION) as db:
+        games = db.get_all_user_games(chat_id)
+
+    lang = find_user_lang(update, context)
+    msgs = games_desc_adaptive(games, lang)
+    for msg in msgs:
+        update.message.reply_text(
+            msg,
+            parse_mode="HTML", disable_web_page_preview=True,
+        )
+
+    if not msgs:
+        msg = localize(MenuItem.NoSubscribedGames, update, context)
+        update.message.reply_text(msg)
 
     return settings_prompt(update, context)
 
