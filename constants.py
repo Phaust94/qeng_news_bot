@@ -14,6 +14,7 @@ __all__ = [
     "SALT", "RULE_ID_LENGTH",
     "InvalidDomainError",
     "DEFAULT_DAYS_IN_FUTURE",
+    "MAX_USER_RULES_ALLOWED",
 ]
 
 DB_LOCATION = os.path.join(__file__, "..", "data", "bot_db.sqlite")
@@ -31,6 +32,7 @@ GAME_RULE_DOMAIN_KEY = "game_rule_domain"
 SALT = "42663"
 RULE_ID_LENGTH = 10
 DEFAULT_DAYS_IN_FUTURE = 14
+MAX_USER_RULES_ALLOWED = 10
 
 
 class InvalidDomainError(ValueError):

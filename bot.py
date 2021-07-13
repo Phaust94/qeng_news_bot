@@ -85,6 +85,13 @@ def settings_choice_done(update: Update, context: CallbackContext) -> int:
 
 
 def add_rule_promt(update: Update, context: CallbackContext) -> int:
+    with EncounterNewsDB(DB_LOCATION) as db:
+        is_ok_to_add = db.is_user_within_rule_limits(update.message.chat_id)
+    if not is_ok_to_add:
+        msg = localize_dedent(MenuItem.RuleLimitReached, update, context)
+        update.message.reply_text(msg)
+        return settings_prompt(update, context)
+
     kb = kb_from_menu_items([
         MenuItem.DomainRule, MenuItem.TeamRule, MenuItem.PlayerRule, MenuItem.GameRule,
     ], update, context)

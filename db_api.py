@@ -13,7 +13,7 @@ import pandas as pd
 
 from meta import Domain, EncounterGame, Rule, GameFormat, Language
 from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
-    InvalidDomainError
+    InvalidDomainError, MAX_USER_RULES_ALLOWED
 
 __all__ = [
     "EncounterNewsDB",
@@ -700,6 +700,18 @@ class EncounterNewsDB:
         users_to_notify_df = self.query(query)
 
         return users_to_notify_df
+
+    def is_user_within_rule_limits(self, tg_id: int) -> bool:
+        query = """
+        SELECT COUNT(*) as N_RULES
+        FROM USER_SUBSCRIPTION
+        WHERE 1=1
+        AND USER_ID = :user_id
+        """
+        cnt_rules = self.query(query, {"user_id": tg_id})
+        n_rules = cnt_rules["N_RULES"].iloc[0]
+        is_ok = n_rules <= MAX_USER_RULES_ALLOWED
+        return is_ok
 
     def get_user_rule_by_id(self, tg_id: int, rule_id: str) -> typing.Optional[Rule]:
         query = """

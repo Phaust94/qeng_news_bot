@@ -11,7 +11,7 @@ from telegram.ext import CommandHandler, CallbackContext, MessageHandler, Filter
 
 from meta import Language, EncounterGame
 from constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
-    MAX_MESSAGE_LENGTH_TELEGRAM, DEFAULT_DAYS_IN_FUTURE
+    MAX_MESSAGE_LENGTH_TELEGRAM, DEFAULT_DAYS_IN_FUTURE, MAX_USER_RULES_ALLOWED
 from db_api import EncounterNewsDB
 
 __all__ = [
@@ -87,6 +87,7 @@ class MenuItem(enum.Enum):
     ListSubscribedGames = enum.auto()
     NoSubscribedGames = enum.auto()
     GamesInFutureWarning = enum.auto()
+    RuleLimitReached = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -269,7 +270,12 @@ MENU_LOCALIZATION = {
         Language.Russian: f"Показываю игры в ближайшие {DEFAULT_DAYS_IN_FUTURE} дней, на которые вы подписаны:",
         Language.English: f"Showing games you follow, that start within the next {DEFAULT_DAYS_IN_FUTURE} days:",
     },
-
+    MenuItem.RuleLimitReached: {
+        Language.Russian: f"""У вас не может быть больше {MAX_USER_RULES_ALLOWED} правил.
+         Пожалуйста, удалите старые и неактуальные правила для добавления новых.""",
+        Language.English: f"""You can't have more than {MAX_USER_RULES_ALLOWED} rules.
+         Please, delete old and irrelevant rules to proceed.""",
+    },
 }
 
 
