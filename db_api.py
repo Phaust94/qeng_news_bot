@@ -510,7 +510,7 @@ class EncounterNewsDB:
 
         return games
 
-    def update_domains(self, domains: typing.List[Domain]) -> None:
+    def update_domains(self, domains: typing.List[Domain], merge_into_truth: bool = True) -> None:
         new_games = []
 
         for domain in domains:
@@ -519,8 +519,9 @@ class EncounterNewsDB:
 
         self.games_to_db(new_games, "DOMAIN_GAMES_TEMP", "replace")
         self.find_difference()
-        self.merge_into_truth_db(domains)
-        self.set_update_time(domains)
+        if merge_into_truth:
+            self.merge_into_truth_db(domains)
+            self.set_update_time(domains)
         return None
 
     def merge_into_truth_db(self, domains: typing.List[Domain]) -> None:

@@ -20,11 +20,12 @@ import feedparser
 
 from constants import MAX_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH_TG, MAX_LAST_MESSAGE_LENGTH,\
     SALT, RULE_ID_LENGTH
+from translations import Language, MenuItem, MENU_LOCALIZATION
 
 __all__ = [
     "Domain", "EncounterGame", "Rule",
     "GameMode", "GameFormat", "PassingSequence",
-    "Language",
+    "Language", "MenuItem",
 ]
 
 
@@ -34,76 +35,6 @@ DOMAIN_REGEX = r"([a-zA-Z0-9]+?)\.en\.cx"
 CHROME_DEFAULT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.2 (KHTML, like Gecko) Chrome/22.0.1216.0 Safari/537.2'"
 USER_AGENTS_FACTORY = UserAgent(fallback=CHROME_DEFAULT)
 
-
-class Language(enum.Enum):
-    Russian = enum.auto()
-    English = enum.auto()
-    DemoEnglish = enum.auto()
-
-    @classmethod
-    def _flag_dict(cls) -> typing.Dict[Language, str]:
-        res = {
-            cls.English: "🇬🇧",
-            cls.Russian: "🇷🇺",
-        }
-        return res
-
-    @property
-    def flag(self) -> typing.Union[str, None]:
-        res = self._flag_dict().get(self)
-        return res
-
-    @classmethod
-    def from_flag(cls, flag: str) -> Language:
-        inv_flag_dict = {
-            v: k
-            for k, v in cls._flag_dict().items()
-        }
-        inst = inv_flag_dict[flag]
-        return inst
-
-    @classmethod
-    def _str_dict(cls) -> typing.Dict[Language, str]:
-        res = {
-            cls.English: "en",
-            cls.Russian: "ru",
-        }
-        return res
-
-    def to_str(self) -> str:
-        res = self._str_dict()[self]
-        return res
-
-    @classmethod
-    def from_str(cls, s: str) -> Language:
-        inv_di = {
-            v: k
-            for k, v in cls._str_dict().items()
-        }
-        inv_di[""] = Language.Russian
-        inst = inv_di[s]
-        return inst
-
-    @classmethod
-    def full_name_dict(cls) -> typing.Dict[Language, str]:
-        di = {
-            cls.English: "English",
-            cls.Russian: "Русский",
-        }
-        return di
-
-    @classmethod
-    def from_full_name(cls, full_name: str) -> Language:
-        inv_di = {
-            v: k
-            for k, v in cls.full_name_dict().items()
-        }
-        inst = inv_di.get(full_name, cls.English)
-        return inst
-
-    @property
-    def full_name(self) -> str:
-        return self.full_name_dict()[self]
 
 
 @dataclass
@@ -248,7 +179,11 @@ class CustomNamedEnum(enum.Enum):
 
     @classmethod
     def localization_dict(cls) -> typing.Dict[CustomNamedEnum, typing.Dict[Language, str]]:
-        raise NotImplementedError
+        di = {
+            v: MENU_LOCALIZATION[getattr(MenuItem, f"{cls.__name__}{k}")]
+            for k, v in cls.__members__.items()
+        }
+        return di
 
 
 class GameMode(CustomNamedEnum):
@@ -266,49 +201,13 @@ class GameMode(CustomNamedEnum):
     def _default_value(cls) -> GameMode:
         return cls.Points
 
-    @classmethod
-    def localization_dict(cls) -> typing.Dict[GameMode, typing.Dict[Language, str]]:
-        di = {
-            cls.Quest: {
-                Language.Russian: "Схватка",
-                Language.English: "Quest",
-                Language.DemoEnglish: "Real",
-            },
-            cls.Points: {
-                Language.Russian: "Точки",
-                Language.English: "Points",
-            },
-            cls.Brainstorm: {
-                Language.Russian: "Мозговой штурм",
-                Language.English: "Brainstorm",
-                Language.DemoEnglish: "Brainstorming",
-            },
-            cls.Quiz: {
-                Language.Russian: "Викторина",
-                Language.English: "Quiz",
-            },
-            cls.PhotoHunt: {
-                Language.Russian: "Фотоохота",
-                Language.English: "PhotoHunt",
-            },
-            cls.PhotoExtreme: {
-                Language.Russian: "Фотоэкстрим",
-                Language.English: "PhotoExtreme",
-            },
-            cls.GeoCaching: {
-                Language.Russian: "Кэшинг",
-                Language.English: "GeoCaching",
-            },
-            cls.WetWars: {
-                Language.Russian: "Мокрые войны",
-                Language.English: "WetWars",
-            },
-            cls.Competition: {
-                Language.Russian: "Конкурс",
-                Language.English: "Competition",
-            },
-        }
-        return di
+    # @classmethod
+    # def localization_dict(cls) -> typing.Dict[GameMode, typing.Dict[Language, str]]:
+    #     di = {
+    #         v: getattr(MenuItem, f"GameType{k}")
+    #         for k, v in cls.__members__.items()
+    #     }
+    #     return di
 
 
 class GameFormat(CustomNamedEnum):
@@ -320,36 +219,19 @@ class GameFormat(CustomNamedEnum):
     def _default_value(cls) -> GameFormat:
         return cls.Single
 
-    @classmethod
-    def localization_dict(cls) -> typing.Dict[GameFormat, typing.Dict[Language, str]]:
-        di = {
-            cls.Single: {
-                Language.Russian: "В одиночку",
-                Language.English: "Single",
-            },
-            cls.Team: {
-                Language.Russian: "Командами",
-                Language.English: "Team",
-            },
-            cls.Personal: {
-                Language.Russian: "Персонально",
-                Language.English: "Personal",
-                Language.DemoEnglish: "Personal(she)",
-            },
-        }
-        return di
+    # @classmethod
+    # def localization_dict(cls) -> typing.Dict[GameFormat, typing.Dict[Language, str]]:
+    #     di = {
+    #         v: MENU_LOCALIZATION[getattr(MenuItem, f"GameFormat{k}")]
+    #         for k, v in cls.__members__.items()
+    #     }
+    #     return di
 
     def members_text(self, lang: Language) -> str:
         cls = self.__class__
         di = {
-            cls.Single: {
-                Language.Russian: "Игроков зарегистрировано",
-                Language.English: "Players registered",
-            },
-            cls.Team: {
-                Language.Russian: "Команд зарегистрировано",
-                Language.English: "Teams registered",
-            },
+            v: getattr(MenuItem, f"GameFormatMembers{k}")
+            for k, v in cls.__members__.items()
         }
         return di[self][lang]
 
@@ -365,31 +247,13 @@ class PassingSequence(CustomNamedEnum):
     def _default_value(cls) -> PassingSequence:
         return cls.Linear
 
-    @classmethod
-    def localization_dict(cls) -> typing.Dict[PassingSequence, typing.Dict[Language, str]]:
-        di = {
-            cls.Linear: {
-                Language.Russian: "Линейная",
-                Language.English: "Linear",
-            },
-            cls.Storm: {
-                Language.Russian: "Штурмовая",
-                Language.English: "Storm",
-            },
-            cls.Custom: {
-                Language.Russian: "Указанная (не линейная)",
-                Language.English: "Custom (not linear)",
-            },
-            cls.Random: {
-                Language.Russian: "Случайная",
-                Language.English: "Random",
-            },
-            cls.DynamicallyRandom: {
-                Language.Russian: "Динамически случайная",
-                Language.English: "Dinamically random",
-            },
-        }
-        return di
+    # @classmethod
+    # def localization_dict(cls) -> typing.Dict[PassingSequence, typing.Dict[Language, str]]:
+    #     di = {
+    #         v: getattr(MenuItem, f"PassingSequence{k}")
+    #         for k, v in cls.__members__.items()
+    #     }
+    #     return di
 
 
 @dataclass
@@ -699,27 +563,15 @@ class EncounterGame:
 
     def to_str(self, lang: Language) -> str:
         mem_txt = self.game_format.members_text(lang)
-        desc = {
-            Language.Russian: "Описание",
-            Language.English: "Description",
-        }[lang]
+        desc = MENU_LOCALIZATION[MenuItem.DescriptionText][lang]
         game_props = [
             self.game_mode.localized_name(lang),
             self.passing_sequence.localized_name(lang),
             self.game_format.localized_name(lang),
         ]
-        time_mod = {
-            Language.Russian: ["С", "по"],
-            Language.English: ["From", "to"],
-        }[lang]
-        authors_word = {
-            Language.Russian: "Автор(ы)",
-            Language.English: "Author(s)",
-        }[lang]
-        forum_word = {
-            Language.Russian: "Форум",
-            Language.English: "Forum",
-        }[lang]
+        time_mod = MENU_LOCALIZATION[MenuItem.TimeFromToText][lang]
+        authors_word = MENU_LOCALIZATION[MenuItem.AuthorsText][lang]
+        forum_word = MENU_LOCALIZATION[MenuItem.ForumText][lang]
         desc_pts = [
             f"<b>{self.game_name}</b>",
             f"(id <a href='{self.game_details_full_url}' target='_blank'>{int(self.game_id)}</a>)",
@@ -815,20 +667,12 @@ class Rule:
         )
         return inst
 
-    def _str_di(self) -> typing.Dict[str, typing.Dict[Language, str]]:
+    @staticmethod
+    def _str_di() -> typing.Dict[str, typing.Dict[Language, str]]:
         di = {
-            "player_id": {
-                Language.Russian: f"Игрок {self.player_id}",
-                Language.English: f"Player {self.player_id}",
-            },
-            "team_id": {
-                Language.Russian: f"Команда {self.team_id}",
-                Language.English: f"Team {self.team_id}",
-            },
-            "game_id": {
-                Language.Russian: f"Игра {self.game_id}",
-                Language.English: f"Game {self.game_id})",
-            },
+            "player_id": MENU_LOCALIZATION[MenuItem.PlayerIDText],
+            "team_id": MENU_LOCALIZATION[MenuItem.TeamIDText],
+            "game_id": MENU_LOCALIZATION[MenuItem.GameIDText],
         }
         return di
 
@@ -844,10 +688,8 @@ class Rule:
         di = self._str_di()
         if len(nones) == 1:
             tr = di[nones[0]][language]
-            concat = {
-                Language.Russian: "в домене",
-                Language.English: "in domain",
-            }[language]
+            tr = tr.format(id=getattr(self, nones[0]))
+            concat = MENU_LOCALIZATION[MenuItem.InDomainText][language]
             pts = [
                 tr,
             ]
@@ -858,17 +700,11 @@ class Rule:
             if add_href:
                 rt = RuleType.from_attr(nones[0])
                 url = rt.url(self.domain, getattr(self, nones[0]))
-                word = {
-                    Language.Russian: "ссылка",
-                    Language.English: "link",
-                }[language]
+                word = MENU_LOCALIZATION[MenuItem.LinkText][language]
                 url = f"(<a href={url!r} target='_blank'>{word}</a>)"
                 pts.append(url)
         else:
-            concat = {
-                Language.Russian: "Домен",
-                Language.English: "Domain",
-            }[language]
+            concat = MENU_LOCALIZATION[MenuItem.DomainText][language]
             if add_href:
                 pts = [concat, f"<a href={self.domain.full_url!r} target='_blank'>{self.domain.name}</a>"]
             else:
@@ -896,38 +732,8 @@ class ChangeType(enum.Enum):
     @classmethod
     def localization_dict(cls) -> typing.Dict[ChangeType, typing.Dict[Language, str]]:
         di = {
-            cls.NewGame: {
-                Language.Russian: "Новая игра",
-                Language.English: "New game",
-            },
-            cls.NameChanged: {
-                Language.Russian: "Название игры изменилось",
-                Language.English: "Game name changed",
-            },
-            cls.StartTimeChanged: {
-                Language.Russian: "Начало игры перенесено",
-                Language.English: "Game start time changed",
-            },
-            cls.EndTimeChanged: {
-                Language.Russian: "Окончание игры перенесено",
-                Language.English: "Game end time changed",
-            },
-            cls.PassingSequenceChanged: {
-                Language.Russian: "Последовательность прохождения игры изменилась",
-                Language.English: "Game passing sequence changed",
-            },
-            cls.PlayersListChanged: {
-                Language.Russian: "Список участников изменился",
-                Language.English: "Playsers list changed",
-            },
-            cls.DescriptionChanged: {
-                Language.Russian: "Описание игры изменилось",
-                Language.English: "Game description changed",
-            },
-            cls.NewForumMessage: {
-                Language.Russian: "Новое сообщение(я) на форуме. Последнее сообщение",
-                Language.English: "New forum message(ы). Last message",
-            }
+            v: MENU_LOCALIZATION[getattr(MenuItem, n)]
+            for n, v in cls.__members__.items()
         }
         return di
 
@@ -939,7 +745,6 @@ class ChangeType(enum.Enum):
             cls.StartTimeChanged: "start_time",
             cls.EndTimeChanged: "end_time",
             cls.PlayersListChanged: "player_ids",
-            cls.DescriptionChanged: "description_truncated",
         }
         return di
 
@@ -1013,73 +818,78 @@ class Change:
         inst = cls(**init_dict)
         return inst
 
-    def _to_str_content(self, language: Language) -> typing.Dict[ChangeType, str]:
-        di = {
-            ChangeType.NewGame: EncounterGame(
+    def _to_str_content(self, change_type: ChangeType, language: Language) -> str:
+        if change_type is ChangeType.NewGame:
+            return EncounterGame(
                 self.domain,
                 self.id, self.new_name, self.game_mode, self.game_format,
                 self.new_passing_sequence, self.new_start_time, self.new_end_time,
                 self.new_player_ids, self.new_description_truncated,
                 self.authors, self.forum_thread_id, self.new_last_message_id,
                 self.new_message_text,
-            ).to_str(language),
-        }
+            ).to_str(language)
+
         # TODO: textdiff for description
 
         joiners = {
-            ChangeType.DescriptionChanged: {
-                Language.Russian: ("Было:\n", "Стало:\n"),
-                Language.English: ("Before:\n", "Now:\n"),
-            },
-            ChangeType.PlayersListChanged: {
-                Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: "),
-                Language.English: ("\nNew participants: ", "\nDismissed participants: "),
-            }
+            ChangeType.PlayersListChanged: MENU_LOCALIZATION[MenuItem.ChangeParticipantsJoiner]
         }
-        default_joiners = {
-            Language.Russian: ("", " -> "),
-            Language.English: ("", " -> "),
-        }
-
-        for ct, root in ChangeType.to_root_part().items():
-            if ct is ChangeType.PassingSequenceChanged:
+        default_joiners = ("", " -> ")
+        rp = ChangeType.to_root_part()
+        if change_type in rp:
+            root = rp[change_type]
+            if change_type is ChangeType.PassingSequenceChanged:
                 if self.old_passing_sequence:
                     old_v_f = self.old_passing_sequence.localized_name(language)
                 else:
                     old_v_f = str(None)
+
                 new_v_f = self.new_passing_sequence.localized_name(language)
-            elif ct is ChangeType.PlayersListChanged:
+            elif change_type is ChangeType.PlayersListChanged:
                 old_v_f = str(len(set(self.new_player_ids).difference(self.old_player_ids)))
                 new_v_f = str(len(set(self.old_player_ids).difference(self.new_player_ids)))
             else:
                 old_v_f = getattr(self, f"old_{root}")
                 new_v_f = getattr(self, f"new_{root}")
 
-            joiners_curr = joiners.get(ct, default_joiners)[language]
-            di[ct] = " ".join([
+            joiners_curr = joiners.get(change_type, default_joiners)
+            res = " ".join([
                 joiners_curr[0], str(old_v_f), joiners_curr[1], str(new_v_f)
             ])
+            return res
+        elif change_type is ChangeType.DescriptionChanged:
+            return ""
+        else:
+            assert change_type is ChangeType.NewForumMessage, "Wrong change type"
+            res = str(BeautifulSoup(self.new_message_text, 'lxml').text)
+            return res
 
-        di[ChangeType.NewForumMessage] = str(BeautifulSoup(self.new_message_text, 'lxml').text)
-
-        return di
+    def find_description_change(self):
+        return None
 
     def change_type_to_msg(self, change_type: ChangeType, language: Language) -> str:
         prefix = change_type.localization_dict()[change_type][language]
-        cont_dict = self._to_str_content(language)
-        cont = cont_dict[change_type]
+        cont = self._to_str_content(change_type, language)
         msg = f"<u>{prefix}</u>: {cont}"
         return msg
 
+    @property
+    def current_changes(self) -> typing.List[ChangeType]:
+        change_to_type = [
+            (self.name_changed, ChangeType.NameChanged),
+            (self.passing_sequence_changed, ChangeType.PassingSequenceChanged),
+            (self.start_time_changed, ChangeType.StartTimeChanged),
+            (self.end_time_changed, ChangeType.EndTimeChanged),
+            (self.players_list_changed, ChangeType.PlayersListChanged),
+            (self.new_message, ChangeType.NewForumMessage),
+            (self.description_changed, ChangeType.DescriptionChanged),
+        ]
+        ch = [ct for b, ct in change_to_type if b]
+        return ch
+
     def _to_str_parts(self, language: Language) -> typing.List[str]:
-        update_word = {
-            Language.Russian: "Обновление по игре",
-            Language.English: "Game update for"
-        }[language]
-        forum_word = {
-            Language.Russian: "Форум",
-            Language.English: "Forum",
-        }[language]
+        update_word = MENU_LOCALIZATION[MenuItem.UpdateText][language]
+        forum_word = MENU_LOCALIZATION[MenuItem.ForumText][language]
         full_url = EncounterGame._game_details_full_url(self.domain, self.id)
         forum_url = EncounterGame._forum_url(self.domain, self.forum_thread_id)
         prefix_global_pts = [
@@ -1097,20 +907,9 @@ class Change:
             res.append(msg)
             return res
 
-        change_to_type = [
-            (self.name_changed, ChangeType.NameChanged),
-            (self.passing_sequence_changed, ChangeType.PassingSequenceChanged),
-            (self.start_time_changed, ChangeType.StartTimeChanged),
-            (self.end_time_changed, ChangeType.EndTimeChanged),
-            (self.description_changed, ChangeType.DescriptionChanged),
-            (self.players_list_changed, ChangeType.PlayersListChanged),
-            (self.new_message, ChangeType.NewForumMessage),
-        ]
-
-        for change_bool, change_type in change_to_type:
-            if change_bool:
-                msg = self.change_type_to_msg(change_type, language)
-                res.append(msg)
+        for change_type in self.current_changes:
+            msg = self.change_type_to_msg(change_type, language)
+            res.append(msg)
 
         return res
 
@@ -1126,7 +925,11 @@ class Change:
 if __name__ == '__main__':
     # games_ = Domain.from_url("http://kramatorsk.en.cx").get_games()
     games_ = Domain.from_url("http://kharkiv.en.cx/?lang=ru")
-    games_.get_games()
+    res_ = games_.get_games()
+    print(res_)
+
+    # print(GameFormat.localization_dict())
+
     # print(Domain.from_url("krak.en.cx/?lang=dido"))
     # print(list(map(str, games_)))
     # print("a")
