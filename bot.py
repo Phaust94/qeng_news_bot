@@ -419,7 +419,9 @@ def main():
 
         states=STATE_TO_HANDLERS,
 
-        fallbacks=[MessageHandler(Filters.text, settings_end)]
+        fallbacks=[MessageHandler(Filters.text, settings_end)],
+        per_chat=True,
+        per_user=False,
     )
 
     updater.dispatcher.add_handler(conv_handler)

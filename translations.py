@@ -163,6 +163,7 @@ class MenuItem(enum.Enum):
 
     GameFormatMembersSingle = enum.auto()
     GameFormatMembersTeam = enum.auto()
+    GameFormatMembersPersonal = enum.auto()
 
     PassingSequenceLinear = enum.auto()
     PassingSequenceStorm = enum.auto()
@@ -222,7 +223,7 @@ MENU_LOCALIZATION = {
     },
     MenuItem.MenuEnd: {
         Language.Russian: "Выбор настроек окончен. Если хотите совершить настройку ещё раз - вызовите комманду /menu",
-        Language.English: "Done changing settings. If you wish to chanage settings oce again - just call /menu",
+        Language.English: "Done changing settings. If you wish to chanage settings once again - just call /menu",
     },
     MenuItem.DomainRule: {
         Language.Russian: "Слежение за доменом",
@@ -322,7 +323,7 @@ MENU_LOCALIZATION = {
          With this rule you can also track games without tracking the whole domain.""",
     },
     MenuItem.DomainInvalid: {
-        Language.Russian: "Некооректный домен. Попробуйте ещё раз.",
+        Language.Russian: "Некорректный домен. Попробуйте ещё раз.",
         Language.English: "Invalid domain. Try again.",
     },
     MenuItem.TeamIDPrompt: {
@@ -361,8 +362,8 @@ MENU_LOCALIZATION = {
     },
     MenuItem.ChangeParticipantsJoiner:
         {
-            Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: "),
-            Language.English: ("\nNew participants: ", "\nDismissed participants: "),
+            Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: ", "\nВсего заявок: "),
+            Language.English: ("\nNew participants: ", "\nDismissed participants: ", "\nTotal participants: "),
         },
     MenuItem.NewGame: {
         Language.Russian: "Новая игра",
@@ -498,6 +499,10 @@ MENU_LOCALIZATION = {
     MenuItem.GameFormatMembersTeam: {
         Language.Russian: "Команд зарегистрировано",
         Language.English: "Teams registered",
+    },
+    MenuItem.GameFormatMembersPersonal: {
+        Language.Russian: "Игроков зарегистрировано",
+        Language.English: "Players registered",
     },
 
     MenuItem.PassingSequenceLinear: {

@@ -2,6 +2,8 @@
 DB API for the bot
 """
 
+from __future__ import annotations
+
 from sqlite3 import connect, Connection
 from dataclasses import dataclass, field
 import typing
@@ -11,9 +13,9 @@ from sqlite3 import IntegrityError
 
 import pandas as pd
 
-from meta import Domain, EncounterGame, Rule, GameFormat, Language
+from meta import Domain, EncounterGame, Rule, GameFormat, Language, Change, Update
 from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
-    InvalidDomainError, MAX_USER_RULES_ALLOWED
+    InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS
 
 __all__ = [
     "EncounterNewsDB",
@@ -158,7 +160,7 @@ class EncounterNewsDB:
                 )
                 """, raise_on_error=False)
 
-        db.query("""
+        self.query("""
                 CREATE VIEW RULE_DESCRIPTION_V
                 AS
                 SELECT
@@ -169,6 +171,54 @@ class EncounterNewsDB:
                 END as IS_COARSE_RULE
                 FROM RULE_DESCRIPTION
                 """, raise_on_error=False)
+
+        self.query(f"""CREATE VIEW DOMAIN_GAMES_DIFFERENCES
+        AS
+        WITH changes_all as (
+            SELECT 
+            temp.DOMAIN, temp.ID, 
+            CASE WHEN ex.DOMAIN IS NULL THEN 1 ELSE 0 END as GAME_NEW,
+            CASE WHEN temp.NAME <> ex.NAME THEN 1 ELSE 0 END as NAME_CHANGED,
+            ex.NAME as OLD_NAME,
+            temp.NAME as NEW_NAME,
+            CASE WHEN temp.PASSING_SEQUENCE <> ex.PASSING_SEQUENCE THEN 1 ELSE 0 END as PASSING_SEQUENCE_CHANGED,
+            ex.PASSING_SEQUENCE as OLD_PASSING_SEQUENCE,
+            temp.PASSING_SEQUENCE as NEW_PASSING_SEQUENCE,
+            CASE WHEN temp.START_TIME <> ex.START_TIME THEN 1 ELSE 0 END as START_TIME_CHANGED,
+            ex.START_TIME as OLD_START_TIME,
+            temp.START_TIME as NEW_START_TIME,
+            CASE WHEN temp.END_TIME <> ex.END_TIME THEN 1 ELSE 0 END as END_TIME_CHANGED,
+            ex.END_TIME as OLD_END_TIME,
+            temp.END_TIME as NEW_END_TIME,
+            CASE WHEN IFNULL(temp.PLAYER_IDS, '') <> IFNULL(ex.PLAYER_IDS, '')
+             THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED,
+            ex.PLAYER_IDS as OLD_PLAYER_IDS,
+            temp.PLAYER_IDS as NEW_PLAYER_IDS,
+            CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 
+            1.0 / (ex.DESCRIPTION_REAL_LENGTH + 1) > {PERCENTAGE_CHANGE_TO_TRIGGER} THEN 1 ELSE 0 END
+            as DESCRIPTION_SIGNIFICANTLY_CHANGED,
+            ex.DESCRIPTION_TRUNCATED as OLD_DESCRIPTION_TRUNCATED,
+            temp.DESCRIPTION_TRUNCATED as NEW_DESCRIPTION_TRUNCATED,
+            CASE WHEN IFNULL(temp.DESCRIPTION_TRUNCATED, '') <> IFNULL(ex.DESCRIPTION_TRUNCATED, '') 
+            THEN 1 ELSE 0 END as DESCRIPTION_CHANGED,
+            CASE WHEN IFNULL(temp.LAST_MESSAGE_ID, '') <> IFNULL(ex.LAST_MESSAGE_ID, '')
+            THEN 1 ELSE 0 END as NEW_MESSAGE,
+            temp.LAST_MESSAGE_TEXT as NEW_MESSAGE_TEXT,
+            temp.AUTHORS as AUTHORS,
+            temp.MODE as GAME_MODE,
+            temp.FORMAT as GAME_FORMAT,
+            temp.FORUM_THREAD_ID as FORUM_THREAD_ID,
+            temp.LAST_MESSAGE_ID as NEW_LAST_MESSAGE_ID
+            FROM DOMAIN_GAMES_TEMP as temp
+            LEFT OUTER JOIN DOMAIN_GAMES as ex
+            ON (temp.DOMAIN = ex.DOMAIN AND temp.ID = ex.ID)
+        )
+        SELECT *
+        FROM changes_all
+        WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + 
+        END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + 
+        DESCRIPTION_CHANGED + NEW_MESSAGE > 0
+        """, raise_on_error=False)
 
         return None
 
@@ -229,20 +279,6 @@ class EncounterNewsDB:
         rule = Rule(domain=domain_inst, **kwargs)
         self.add_rule(tg_id, rule)
         return rule
-
-    # def add_domain_to_user(self, tg_id: int, domain: Domain) -> str:
-    #
-    #     domain_normalized_url = domain.full_url
-    #     row = pd.DataFrame([{
-    #         "USER_ID": tg_id,
-    #         "DOMAIN": domain_normalized_url,
-    #     }])
-    #     res = "Domain added to the list"
-    #     try:
-    #         row.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
-    #     except IntegrityError:
-    #         res = "You already have the domain in the watched list"
-    #     return res
 
     def is_domain_tracked(self, domain: Domain) -> bool:
         domain_normalized_url = domain.full_url
@@ -510,28 +546,23 @@ class EncounterNewsDB:
 
         return games
 
-    def update_domains(self, domains: typing.List[Domain], merge_into_truth: bool = True) -> None:
-        new_games = []
-
-        for domain in domains:
-            new_games_pt = domain.get_games()
-            new_games.extend(new_games_pt)
-
-        self.games_to_db(new_games, "DOMAIN_GAMES_TEMP", "replace")
-        self.find_difference()
-        if merge_into_truth:
-            self.merge_into_truth_db(domains)
-            self.set_update_time(domains)
+    def games_to_temp_table(
+            self,
+            games: typing.List[EncounterGame],
+    ) -> None:
+        self.games_to_db(games, "DOMAIN_GAMES_TEMP", "replace")
         return None
 
-    def merge_into_truth_db(self, domains: typing.List[Domain]) -> None:
-        domains_tuple = tuple(d.full_url for d in domains)
-        if len(domains_tuple) == 1:
-            domains_tuple = f"({domains_tuple[0]!r})"
+    def commit_update(self) -> None:
+        self.merge_into_truth_db()
+        self.set_update_time()
+        return None
+
+    def merge_into_truth_db(self) -> None:
         delete_query = f"""
         DELETE FROM DOMAIN_GAMES
         WHERE 1=1
-        AND DOMAIN IN {domains_tuple}
+        AND DOMAIN IN (select DISTINCT DOMAIN FROM DOMAIN_GAMES_TEMP)
         """
         self.query(delete_query, raise_on_error=False)
         insert_query = """
@@ -541,17 +572,14 @@ class EncounterNewsDB:
         self.query(insert_query, raise_on_error=False)
         return None
 
-    def set_update_time(self, domains: typing.List[Domain]) -> None:
-        domains_tuple = tuple(d.full_url for d in domains)
-        if len(domains_tuple) == 1:
-            domains_tuple = f"({domains_tuple[0]!r})"
+    def set_update_time(self) -> None:
         query = f"""
         UPDATE DOMAIN_QUERY_STATUS
         SET LAST_QUERY_TIME = CURRENT_TIMESTAMP
         WHERE 1=1
-        AND DOMAIN IN {domains_tuple}
+        AND DOMAIN IN (SELECT DISTINCT DOMAIN FROM DOMAIN_GAMES_TEMP)
         """
-        res = self.query(query,  raise_on_error=False)
+        res = self.query(query, raise_on_error=False)
         assert res is None, res["Exception_text"].iloc[0]
         return None
 
@@ -738,6 +766,30 @@ class EncounterNewsDB:
 
         return res
 
+    def get_updates(self: EncounterNewsDB) -> typing.List[Update]:
+        domains_due = self.find_domains_due(UPDATE_FREQUENCY_SECONDS)
+        # domains_due = [Domain("kharkiv")]         # For test purposes only
+
+        if domains_due:
+            new_games = []
+
+            for domain in domains_due:
+                new_games_pt = domain.get_games()
+                new_games.extend(new_games_pt)
+
+            self.games_to_temp_table(new_games)
+            users_to_notify = self.users_to_notify()
+        else:
+            users_to_notify = pd.DataFrame()
+
+        # noinspection PyTypeChecker
+        notifs = [
+            Update.from_row(row)
+            for _, row in users_to_notify.iterrows()
+        ]
+
+        return notifs
+
     def delete_user_rule_by_id(self, tg_id: int, rule_id: str) -> None:
         query = """
         DELETE FROM USER_SUBSCRIPTION 
@@ -776,6 +828,6 @@ class EncounterNewsDB:
 if __name__ == '__main__':
 
     from constants import DB_LOCATION
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with EncounterNewsDB(DB_LOCATION) as db_:
         d_ = Domain("kharkiv")
-        db.update_domains([d_])
+        db_.update_domains([d_])

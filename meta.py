@@ -5,27 +5,36 @@
 from __future__ import annotations
 
 import datetime
+import itertools
 from dataclasses import dataclass, fields, Field
 import re
 import enum
 import typing
 import hashlib
 from urllib.parse import urlsplit, parse_qs
+import os
+import time
+from io import BytesIO
+import tempfile
+from contextlib import contextmanager
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup, Tag
 from fake_useragent import UserAgent
 import feedparser
+from selenium import webdriver
+from PIL import Image
 
 from constants import MAX_DESCRIPTION_LENGTH, MAX_DESCRIPTION_LENGTH_TG, MAX_LAST_MESSAGE_LENGTH,\
     SALT, RULE_ID_LENGTH
 from translations import Language, MenuItem, MENU_LOCALIZATION
+from description_diff import html_diffs
 
 __all__ = [
     "Domain", "EncounterGame", "Rule",
     "GameMode", "GameFormat", "PassingSequence",
-    "Language", "MenuItem",
+    "Language", "MenuItem", "Update",
 ]
 
 
@@ -34,7 +43,6 @@ DOMAIN_REGEX = r"([a-zA-Z0-9]+?)\.en\.cx"
 
 CHROME_DEFAULT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.2 (KHTML, like Gecko) Chrome/22.0.1216.0 Safari/537.2'"
 USER_AGENTS_FACTORY = UserAgent(fallback=CHROME_DEFAULT)
-
 
 
 @dataclass
@@ -230,7 +238,7 @@ class GameFormat(CustomNamedEnum):
     def members_text(self, lang: Language) -> str:
         cls = self.__class__
         di = {
-            v: getattr(MenuItem, f"GameFormatMembers{k}")
+            v: MENU_LOCALIZATION[getattr(MenuItem, f"GameFormatMembers{k}")]
             for k, v in cls.__members__.items()
         }
         return di[self][lang]
@@ -295,21 +303,21 @@ class EncounterGame:
             return self._game_mode
 
     @staticmethod
-    def _parse_time(time: str) -> datetime.datetime:
+    def _parse_time(time_: str) -> datetime.datetime:
         # noinspection PyBroadException
         try:
-            dt = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+            dt = datetime.datetime.strptime(time_, "%Y-%m-%d %H:%M:%S")
         except Exception:
             # noinspection PyBroadException
             try:
-                d, t = time.split(" ")[:2]
+                d, t = time_.split(" ")[:2]
                 d = d[:10]
                 if t.endswith("("):
                     t = t[:-2]
                 new_time = f"{d} {t}"
                 dt = datetime.datetime.strptime(new_time, "%d.%m.%Y %H:%M:%S")
             except Exception:
-                d, t, *rest = time.split(" ")
+                d, t, *rest = time_.split(" ")
 
                 if rest:
                     loc, *_ = rest
@@ -744,7 +752,6 @@ class ChangeType(enum.Enum):
             cls.PassingSequenceChanged: "passing_sequence",
             cls.StartTimeChanged: "start_time",
             cls.EndTimeChanged: "end_time",
-            cls.PlayersListChanged: "player_ids",
         }
         return di
 
@@ -831,41 +838,41 @@ class Change:
 
         # TODO: textdiff for description
 
-        joiners = {
-            ChangeType.PlayersListChanged: MENU_LOCALIZATION[MenuItem.ChangeParticipantsJoiner][language]
-        }
         default_joiners = ("", " -> ")
         rp = ChangeType.to_root_part()
         if change_type in rp:
             root = rp[change_type]
             if change_type is ChangeType.PassingSequenceChanged:
+
                 if self.old_passing_sequence:
                     old_v_f = self.old_passing_sequence.localized_name(language)
                 else:
-                    old_v_f = str(None)
+                    old_v_f = None
 
                 new_v_f = self.new_passing_sequence.localized_name(language)
-            elif change_type is ChangeType.PlayersListChanged:
-                old_v_f = str(len(set(self.new_player_ids).difference(self.old_player_ids)))
-                new_v_f = str(len(set(self.old_player_ids).difference(self.new_player_ids)))
             else:
                 old_v_f = getattr(self, f"old_{root}")
                 new_v_f = getattr(self, f"new_{root}")
 
-            joiners_curr = joiners.get(change_type, default_joiners)
-            res = " ".join([
-                joiners_curr[0], str(old_v_f), joiners_curr[1], str(new_v_f)
-            ])
+            interlaced = itertools.chain.from_iterable(zip(default_joiners, [old_v_f, new_v_f]))
+            res = " ".join(map(str, interlaced))
             return res
         elif change_type is ChangeType.DescriptionChanged:
             return ""
+        elif change_type is ChangeType.PlayersListChanged:
+            vals = [
+                len(set(self.new_player_ids).difference(self.old_player_ids)),
+                len(set(self.old_player_ids).difference(self.new_player_ids)),
+                len(self.new_player_ids),
+            ]
+            joiners = MENU_LOCALIZATION[MenuItem.ChangeParticipantsJoiner][language]
+            interlaced = itertools.chain.from_iterable(zip(joiners, vals))
+            res = " ".join(map(str, interlaced))
+            return res
         else:
             assert change_type is ChangeType.NewForumMessage, "Wrong change type"
             res = str(BeautifulSoup(self.new_message_text, 'lxml').text)
             return res
-
-    def find_description_change(self):
-        return None
 
     def change_type_to_msg(self, change_type: ChangeType, language: Language) -> str:
         prefix = change_type.localization_dict()[change_type][language]
@@ -920,6 +927,104 @@ class Change:
 
     def __str__(self):
         return self.to_str(Language.English)
+
+
+@dataclass
+class Update:
+    user_id: int
+    language: Language
+    change: Change
+
+    @staticmethod
+    def test_fullpage_screenshot(
+            file: str,
+            path: str,
+            driver: webdriver.Chrome
+    ) -> None:
+        driver.get(file)
+        time.sleep(0.25)
+        element = driver.find_element_by_id('main')  # find part of the page you want image of
+
+        driver.set_window_size(800, 100)
+        time.sleep(0.25)
+        total_height = element.size["height"] + 200
+        driver.set_window_size(800, total_height)
+        time.sleep(0.25)
+
+        location = element.location
+        size = element.size
+
+        png = driver.get_screenshot_as_png()  # saves screenshot of entire page
+        driver.quit()
+
+        im = Image.open(BytesIO(png))  # uses PIL library to open image in memory
+
+        left = location['x']
+        top = location['y']
+        right = location['x'] + size['width']
+        bottom = location['y'] + size['height']
+
+        im = im.crop((left, top, right, bottom))  # defines crop points
+        im.save(path)  # saves new cropped image
+        return None
+
+    @classmethod
+    def create_diff(
+            cls,
+            old_description: str, new_description: str, lang: Language,
+            driver: webdriver.Chrome,
+    ) -> typing.Tuple[typing.Any, str]:
+        names = MENU_LOCALIZATION[MenuItem.DescriptionBeforeAfter][lang]
+        res = html_diffs(old_description, new_description, *names)
+        html_fd, html_path = tempfile.mkstemp(suffix=".html")
+        pic_fd, pic_path = tempfile.mkstemp(suffix=".png")
+        with open(html_path, 'w') as tmp:
+            tmp.write(res)
+        try:
+            cls.test_fullpage_screenshot(f"file://{html_path}", pic_path, driver)
+        finally:
+            os.close(html_fd)
+            os.remove(html_path)
+        return pic_fd, pic_path
+
+    @property
+    def msg(self) -> str:
+        msg_ = self.change.to_str(self.language)
+        return msg_
+
+    @property
+    def has_diffpic(self) -> bool:
+        return ChangeType.DescriptionChanged in self.change.current_changes
+
+    @contextmanager
+    def diffpic(self, driver: webdriver.Chrome):
+        pic_fd, pic_path = self.create_diff(
+            self.change.old_description_truncated,
+            self.change.new_description_truncated,
+            lang=self.language,
+            driver=driver,
+        )
+        try:
+            with open(pic_path, "rb") as pic:
+                yield pic
+        finally:
+            os.close(pic_fd)
+            os.remove(pic_path)
+        return None
+
+    @classmethod
+    def from_row(
+            cls,
+            row: pd.Series,
+    ) -> Update:
+        user_id = row["USER_ID"]
+        lang = Language(row["LANGUAGE"])
+        # noinspection PyTypeChecker
+        change = Change.from_json(row.to_dict())
+        inst = cls(
+            user_id, lang, change
+        )
+        return inst
 
 
 if __name__ == '__main__':
