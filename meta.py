@@ -832,7 +832,7 @@ class Change:
         # TODO: textdiff for description
 
         joiners = {
-            ChangeType.PlayersListChanged: MENU_LOCALIZATION[MenuItem.ChangeParticipantsJoiner]
+            ChangeType.PlayersListChanged: MENU_LOCALIZATION[MenuItem.ChangeParticipantsJoiner][language]
         }
         default_joiners = ("", " -> ")
         rp = ChangeType.to_root_part()
