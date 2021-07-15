@@ -51,6 +51,9 @@ def update_db() -> None:
                     bot.send_photo(upd.user_id, dp)
 
         db.commit_update()
+        if driver is not None:
+            driver.quit()
+
 
     print(len(updates), "message(s) sent")
 

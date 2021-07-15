@@ -955,7 +955,6 @@ class Update:
         size = element.size
 
         png = driver.get_screenshot_as_png()  # saves screenshot of entire page
-        driver.quit()
 
         im = Image.open(BytesIO(png))  # uses PIL library to open image in memory
 
