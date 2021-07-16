@@ -54,7 +54,6 @@ def update_db() -> None:
         if driver is not None:
             driver.quit()
 
-
     print(len(updates), "message(s) sent")
 
     return None
