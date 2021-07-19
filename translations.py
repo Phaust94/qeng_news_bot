@@ -327,7 +327,7 @@ MENU_LOCALIZATION = {
     MenuItem.RuleDeleted: {
         Language.Russian: "Правило\n{}\nудалено успешно.",
         Language.English: "Rule\n{}\ndeleted successfully.",
-        Language.Ukrainian: "Правило\n{}\nдодано успышно",
+        Language.Ukrainian: "Правило\n{}\nвидалено успішно.",
     },
     MenuItem.AnotherDomain: {
         Language.Russian: "Другой домен",
