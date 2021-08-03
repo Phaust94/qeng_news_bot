@@ -58,6 +58,7 @@ class EncounterNewsDB:
                 PLAYER_ID int,
                 TEAM_ID int,
                 GAME_ID int,
+                AUTHOR_ID int,
                 PRIMARY KEY (RULE_ID)
                 )
                 """, raise_on_error=False)
@@ -169,8 +170,9 @@ class EncounterNewsDB:
                 SELECT
                 *, 
                 CASE 
-                WHEN PLAYER_ID IS NULL AND TEAM_ID IS NULL AND GAME_ID IS NULL THEN 1
-                ELSE 0 
+                WHEN PLAYER_ID IS NULL AND TEAM_ID IS NULL AND GAME_ID IS NULL AND AUTHOR_ID IS NULL
+                 THEN 1
+                 ELSE 0 
                 END as IS_COARSE_RULE
                 FROM RULE_DESCRIPTION
                 """, raise_on_error=False)
@@ -258,7 +260,7 @@ class EncounterNewsDB:
             res = pd.DataFrame([{"Exception_text": exc_txt}])
         return res
 
-    def add_rule(self, tg_id: int, rule: Rule):
+    def add_rule(self, tg_id: int, rule: Rule) -> bool:
         df = pd.DataFrame([rule.to_json()])
         # res = "Rule added"
         try:
@@ -272,28 +274,32 @@ class EncounterNewsDB:
             "RULE_ID": rule.rule_id,
             "RULE_ADDED_DATE": datetime.datetime.utcnow(),
         }])
-        res = "User rule added"
+        res = True
         try:
             df.to_sql("USER_SUBSCRIPTION", self._db_conn, if_exists="append", index=False)
         except IntegrityError:
-            res = "You already have this rule"
+            res = False
         return res
 
-    def add_domain_to_user_outer(self, tg_id: int, domain: str) -> Rule:
+    def add_domain_to_user_outer(self, tg_id: int, domain: str) -> typing.Tuple[bool, Rule]:
         try:
             domain_inst = Domain.from_url(domain)
         except Exception:
             raise InvalidDomainError(domain)
-        self.track_domain(domain_inst)
+        self.track_domain_outer(domain)
         rule = Rule(domain=domain_inst)
-        self.add_rule(tg_id, rule)
-        return rule
+        succ = self.add_rule(tg_id, rule)
+        return succ, rule
 
-    def add_mixed_rule_outer(self, tg_id: int, domain: str, **kwargs) -> Rule:
-        domain_inst = Domain.from_url(domain)
+    def add_mixed_rule_outer(self, tg_id: int, domain: str, **kwargs) -> typing.Tuple[bool, Rule]:
+        try:
+            domain_inst = Domain.from_url(domain)
+        except Exception:
+            raise InvalidDomainError(domain)
+        self.track_domain_outer(domain)
         rule = Rule(domain=domain_inst, **kwargs)
-        self.add_rule(tg_id, rule)
-        return rule
+        succ = self.add_rule(tg_id, rule)
+        return succ, rule
 
     def is_domain_tracked(self, domain: Domain) -> bool:
         domain_normalized_url = domain.full_url
@@ -712,6 +718,13 @@ class EncounterNewsDB:
                 OR 
                 (
                     1=1
+                    AND dd.AUTHORS_IDS LIKE '%' || us.AUTHOR_ID || '%'
+                    AND dd.DOMAIN = us.DOMAIN
+                    AND us.IS_COARSE_RULE = 0
+                )
+                OR 
+                (
+                    1=1
                     AND dd.DOMAIN = us.DOMAIN
                     AND dd.ID = us.GAME_ID
                     AND us.IS_COARSE_RULE = 0
@@ -833,6 +846,54 @@ class EncounterNewsDB:
                 "user_id": tg_id,
                 "rule_id": rule_id,
             },
+            raise_on_error=False
+        )
+
+        assert res is None, res["Exception_text"].iloc[0]
+        return res
+
+    def prune_rule_descriptions(self) -> None:
+        query = """
+        WITH UNUSED_RULES as (
+            SELECT 
+            rd.RULE_ID
+            FROM RULE_DESCRIPTION as rd
+            LEFT JOIN USER_SUBSCRIPTION as us
+            ON (rd.RULE_ID = us.RULE_ID)
+            WHERE 1=1
+            AND us.RULE_ID IS NULL
+            GROUP BY 1
+        )
+        DELETE FROM RULE_DESCRIPTION 
+        WHERE 1=1
+        AND RULE_ID IN UNUSED_RULES
+        """
+        res = self.query(
+            query,
+            raise_on_error=False
+        )
+
+        assert res is None, res["Exception_text"].iloc[0]
+        return res
+
+    def prune_domain_query_status(self) -> None:
+        query = """
+        WITH UNUSED_DOMAINS as (
+            SELECT 
+            dqs.DOMAIN
+            FROM DOMAIN_QUERY_STATUS as dqs
+            LEFT JOIN RULE_DESCRIPTION as rd
+            ON (dqs.DOMAIN = rd.DOMAIN)
+            WHERE 1=1
+            AND rd.DOMAIN IS NULL
+            GROUP BY 1
+        )
+        DELETE FROM DOMAIN_QUERY_STATUS 
+        WHERE 1=1
+        AND DOMAIN IN UNUSED_DOMAINS
+        """
+        res = self.query(
+            query,
             raise_on_error=False
         )
 

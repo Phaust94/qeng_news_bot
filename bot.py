@@ -94,6 +94,7 @@ def add_rule_promt(update: Update, context: CallbackContext) -> int:
 
     kb = kb_from_menu_items([
         MenuItem.DomainRule, MenuItem.TeamRule, MenuItem.PlayerRule, MenuItem.GameRule,
+        MenuItem.AuthorRule,
     ], update, context)
 
     msg = localize(MenuItem.RuleTypeChoiceMenu, update, context)
@@ -180,13 +181,14 @@ def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
     with EncounterNewsDB(DB_LOCATION) as db:
         # TODO: add domain validation logic
         try:
-            rule = db.add_domain_to_user_outer(chat_id, domain)
+            succ, rule = db.add_domain_to_user_outer(chat_id, domain)
         except InvalidDomainError:
             msg = localize(MenuItem.DomainInvalid, update, context)
             update.message.reply_text(msg)
             return settings_prompt(update, context)
 
-    msg = localize(MenuItem.RuleAdded, update, context)
+    item = MenuItem.RuleAdded if succ else MenuItem.RuleNotAdded
+    msg = localize(item, update, context)
     lang = find_user_lang(update, context)
     msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
     update.message.reply_text(msg)
@@ -217,6 +219,8 @@ def wait_rule_to_delete(update: Update, context: CallbackContext) -> int:
             return settings_prompt(update, context)
 
         db.delete_user_rule_by_id(chat_id, rule_id)
+        db.prune_rule_descriptions()
+        db.prune_domain_query_status()
     msg = localize(MenuItem.RuleDeleted, update, context)
     msg = msg.format(rule.to_str(user_lang), disable_web_page_preview=True)
     update.message.reply_text(msg, disable_web_page_preview=True)
@@ -302,9 +306,10 @@ def add_granular_rule_get_id(
 
     with EncounterNewsDB(DB_LOCATION) as db:
         kwargs = {key: game_id}
-        rule = db.add_mixed_rule_outer(chat_id, domain, **kwargs)
+        succ, rule = db.add_mixed_rule_outer(chat_id, domain, **kwargs)
 
-    msg = localize(MenuItem.RuleAdded, update, context)
+    item = MenuItem.RuleAdded if succ else MenuItem.RuleNotAdded
+    msg = localize(item, update, context)
     lang = find_user_lang(update, context)
     msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
     update.message.reply_text(msg)
@@ -362,12 +367,7 @@ STATE_TO_HANDLERS = {
     State.SettingsChoice: h(settings_choice_done),
     State.RuleTypeChoice: h(rule_type_choice_done),
     State.AddDomainRule: h(add_domain_get_domain),
-    # State.AddGranularRuleDomainPrompt: h(add_game_rule_get_domain),
-    # State.AddGameRuleGameIDPompt: h(add_game_rule_get_game_id),
     State.WaitRuleToDelete: h(wait_rule_to_delete),
-    # State.WaitDomainNameForGameID: h(accept_domain_for_game_id),
-
-    # State.AddDomain: h(add_domain_rule),
 }
 
 GRANULAR_RULES = [
@@ -382,6 +382,10 @@ GRANULAR_RULES = [
     (
         "player", MenuItem.PlayerIDPrompt,
         State.ChooseDomainNameForUserID, State.WaitDomainNameForUserID, State.WaitUserIDForUserID
+    ),
+    (
+        "author", MenuItem.AuthorIDPrompt,
+        State.ChooseDomainNameForAuthorID, State.WaitDomainNameForAuthorID, State.WaitAuthorIDForAuthorID
     ),
 
 ]
@@ -431,7 +435,6 @@ def main():
     updater.dispatcher.add_error_handler(error_handler)
 
     updater.start_polling()
-    # q = updater.job_queue
 
     updater.idle()
     return None

@@ -81,11 +81,13 @@ class MenuItem(enum.Enum):
     MenuEnd = enum.auto()
     DomainRule = enum.auto()
     GameRule = enum.auto()
+    AuthorRule = enum.auto()
     PlayerRule = enum.auto()
     TeamRule = enum.auto()
     RuleTypeChoiceMenu = enum.auto()
     DomainPrompt = enum.auto()
     RuleAdded = enum.auto()
+    RuleNotAdded = enum.auto()
     DomainChoicePrompt = enum.auto()
     GameIDPrompt = enum.auto()
     DomainEmptyError = enum.auto()
@@ -100,6 +102,7 @@ class MenuItem(enum.Enum):
     DomainInvalid = enum.auto()
     TeamIDPrompt = enum.auto()
     PlayerIDPrompt = enum.auto()
+    AuthorIDPrompt = enum.auto()
     ListSubscribedGames = enum.auto()
     NoSubscribedGames = enum.auto()
     GamesInFutureWarning = enum.auto()
@@ -118,6 +121,7 @@ class MenuItem(enum.Enum):
     PlayerIDText = enum.auto()
     TeamIDText = enum.auto()
     GameIDText = enum.auto()
+    AuthorIDText = enum.auto()
 
     InDomainText = enum.auto()
     LinkText = enum.auto()
@@ -219,7 +223,8 @@ MENU_LOCALIZATION = {
     MenuItem.MenuEnd: {
         Language.Russian: "Выбор настроек окончен. Если хотите совершить настройку ещё раз - вызовите комманду /menu",
         Language.English: "Done changing settings. If you wish to chanage settings once again - just call /menu",
-        Language.Ukrainian: "Налаштування завершено. Якщо захочете повернутись до процесу налаштування - викличте команду /menu",
+        Language.Ukrainian: "Налаштування завершено. Якщо захочете повернутись до процесу налаштування -"
+                            " викличте команду /menu",
     },
     MenuItem.DomainRule: {
         Language.Russian: "Слежение за доменом",
@@ -231,6 +236,11 @@ MENU_LOCALIZATION = {
         Language.English: "Single game tracking (within one domain)",
         Language.Ukrainian: "Стеження за окремою грою в домені",
     },
+    MenuItem.AuthorRule: {
+        Language.Russian: "Слежение за всеми играми автора в домене",
+        Language.English: "Single author tracking (within one domain)",
+        Language.Ukrainian: "Стеження за всіма іграми автора в домені",
+    },
     MenuItem.TeamRule: {
         Language.Russian: "Слежение за играми команды в домене",
         Language.English: "Single team games tracking (within one domain)",
@@ -239,7 +249,7 @@ MENU_LOCALIZATION = {
     MenuItem.PlayerRule: {
         Language.Russian: "Слежение за играми конкретного игрока в домене (для одиночных игр)",
         Language.English: "Specific player games tracking (within one domain) (for single games)",
-        Language.Ukrainian: "Стеження за іграми конкретного гравця в домені (для одиночних ігр",
+        Language.Ukrainian: "Стеження за іграми конкретного гравця в домені (для одиночних ігр)",
     },
     MenuItem.RuleTypeChoiceMenu: {
         Language.Russian: "Выберите тип правила слежения",
@@ -277,6 +287,11 @@ MENU_LOCALIZATION = {
         Language.Russian: "Правило\n{}\nдобавлено успешно",
         Language.English: "Rule\n{}\nadded successfully",
         Language.Ukrainian: "Правило\n{}\nдодано успішно",
+    },
+    MenuItem.RuleNotAdded: {
+        Language.Russian: "Правило\n{}\nуже находится в вашем списке правил",
+        Language.English: "Rule\n{}\nalready exists in your rule list",
+        Language.Ukrainian: "Правило\n{}\nвже знаходиться у вашому списку правил",
     },
     MenuItem.DomainChoicePrompt: {
         Language.Russian: "Выберите домен",
@@ -344,7 +359,7 @@ MENU_LOCALIZATION = {
          With this rule you can also track games without tracking the whole domain.""",
         Language.Ukrainian: """
         Я надсилатиму вам всі новини: про перенесення гри, про будь-які зміни в описі гри, чи коли з'являється
-         нове повідомлення на форумі. Також з цим правилом ви можете сстежити ща грою без відстеження 
+         нове повідомлення на форумі. Також з цим правилом ви можете стежити за грою без відстеження 
          всього домена цілком.""",
     },
     MenuItem.DomainInvalid: {
@@ -371,7 +386,19 @@ MENU_LOCALIZATION = {
     Send player ID you wish to follow (for single games). 
      E.g. for player http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID is 1724452""",
         Language.Ukrainian: """
-        Надішліть ID гравця, ігри якої ви хочете відстежувати.
+        Надішліть ID гравця, ігри якого ви хочете відстежувати.
+         Наприклад, для гравця http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID буде 1724452""",
+    },
+
+    MenuItem.AuthorIDPrompt: {
+        Language.Russian: """
+    Пришлите ID автора, игры которого вы хотите отслеживать.  
+     Например, для игрока http://kharkiv.en.cx/UserDetails.aspx?uid=1724452 ID будет 1724452""",
+        Language.English: """
+    Send player ID you wish to follow (as an author). 
+     E.g. for player http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID is 1724452""",
+        Language.Ukrainian: """
+        Надішліть ID автора, ігри якого ви хочете відстежувати.
          Наприклад, для гравця http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID буде 1724452""",
     },
 
@@ -461,6 +488,11 @@ MENU_LOCALIZATION = {
         Language.Russian: "Игра {id}",
         Language.English: "Game {id})",
         Language.Ukrainian: "Гра {id}",
+    },
+    MenuItem.AuthorIDText: {
+        Language.Russian: "Автор {id}",
+        Language.English: "Author {id})",
+        Language.Ukrainian: "Автор {id}",
     },
     MenuItem.InDomainText: {
         Language.Russian: "в домене",

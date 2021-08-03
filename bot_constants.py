@@ -41,12 +41,15 @@ class State(enum.IntEnum):
     WaitDomainNameForGameID = enum.auto()
     WaitDomainNameForTeamID = enum.auto()
     WaitDomainNameForUserID = enum.auto()
+    WaitDomainNameForAuthorID = enum.auto()
     WaitGameIDForGameID = enum.auto()
     WaitTeamIDForTeamID = enum.auto()
     WaitUserIDForUserID = enum.auto()
+    WaitAuthorIDForAuthorID = enum.auto()
     ChooseDomainNameForGameID = enum.auto()
     ChooseDomainNameForTeamID = enum.auto()
     ChooseDomainNameForUserID = enum.auto()
+    ChooseDomainNameForAuthorID = enum.auto()
 
 
 def find_user_lang(update: Update, context: CallbackContext) -> Language:
@@ -81,6 +84,7 @@ MENU_ITEM_TO_HANDLER = {
     MenuItem.GameRule: "add_game_rule",
     MenuItem.TeamRule: "add_team_rule",
     MenuItem.PlayerRule: "add_player_rule",
+    MenuItem.AuthorRule: "add_author_rule",
     MenuItem.MenuNoAction: "settings_end",
     MenuItem.ListSubscribedGames: "get_subscribed_games",
 }
