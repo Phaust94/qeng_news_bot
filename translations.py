@@ -471,7 +471,7 @@ MENU_LOCALIZATION = {
     },
     MenuItem.NewForumMessage: {
         Language.Russian: "Новое сообщение(я) на форуме. Последнее сообщение",
-        Language.English: "New forum message(ы). Last message",
+        Language.English: "New forum message(s). Last message",
         Language.Ukrainian: "Нове(і) повідомлення на форумі. Останнє повідомлення",
     },
     MenuItem.PlayerIDText: {

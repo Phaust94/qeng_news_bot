@@ -118,43 +118,6 @@ class EncounterNewsDB:
                 )
                 """, raise_on_error=False)
 
-        self.query(f"""
-                CREATE TABLE DOMAIN_GAMES_DIFFERENCES
-                (
-                DOMAIN varchar(100),
-                ID int,
-                GAME_NEW int,
-                NAME_CHANGED int,
-                OLD_NAME varchar(255),
-                NEW_NAME varchar(255),
-                PASSING_SEQUENCE_CHANGED int,
-                OLD_PASSING_SEQUENCE int,
-                NEW_PASSING_SEQUENCE int,
-                START_TIME_CHANGED int,
-                OLD_START_TIME TIMESTAMP_NTZ,
-                NEW_START_TIME TIMESTAMP_NTZ,
-                END_TIME_CHANGED int,
-                OLD_END_TIME TIMESTAMP_NTZ,
-                NEW_END_TIME TIMESTAMP_NTZ,
-                PLAYERS_LIST_CHANGED int,
-                OLD_PLAYER_IDS varchar(500),
-                NEW_PLAYER_IDS varchar(500),
-                DESCRIPTION_SIGNIFICANTLY_CHANGED int,
-                OLD_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
-                NEW_DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
-                DESCRIPTION_CHANGED int,
-                NEW_MESSAGE int,
-                NEW_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
-                AUTHORS varchar(250),
-                AUTHORS_IDS varchar(250),
-                MODE int,
-                GAME_FORMAT int,
-                FORUM_THREAD_ID int,
-                NEW_LAST_MESSAGE_ID int,
-                PRIMARY KEY (DOMAIN, ID)
-                )
-                """, raise_on_error=False)
-
         self.query("""
                 CREATE TABLE USER_LANGUAGE
                 (
@@ -602,65 +565,6 @@ class EncounterNewsDB:
         """
         res = self.query(query, raise_on_error=False)
         assert res is None, res["Exception_text"].iloc[0]
-        return None
-
-    def find_difference(self) -> None:
-        drop_query = """DROP TABLE IF EXISTS DOMAIN_GAMES_DIFFERENCES"""
-        self.query(drop_query, raise_on_error=False)
-
-        create_query = f"""
-        CREATE TABLE DOMAIN_GAMES_DIFFERENCES
-        AS
-        WITH changes_all as (
-            SELECT 
-            temp.DOMAIN, temp.ID, 
-            CASE WHEN ex.DOMAIN IS NULL THEN 1 ELSE 0 END as GAME_NEW,
-            CASE WHEN temp.NAME <> ex.NAME THEN 1 ELSE 0 END as NAME_CHANGED,
-            ex.NAME as OLD_NAME,
-            temp.NAME as NEW_NAME,
-            CASE WHEN temp.PASSING_SEQUENCE <> ex.PASSING_SEQUENCE THEN 1 ELSE 0 END as PASSING_SEQUENCE_CHANGED,
-            ex.PASSING_SEQUENCE as OLD_PASSING_SEQUENCE,
-            temp.PASSING_SEQUENCE as NEW_PASSING_SEQUENCE,
-            CASE WHEN temp.START_TIME <> ex.START_TIME THEN 1 ELSE 0 END as START_TIME_CHANGED,
-            ex.START_TIME as OLD_START_TIME,
-            temp.START_TIME as NEW_START_TIME,
-            CASE WHEN temp.END_TIME <> ex.END_TIME THEN 1 ELSE 0 END as END_TIME_CHANGED,
-            ex.END_TIME as OLD_END_TIME,
-            temp.END_TIME as NEW_END_TIME,
-            CASE WHEN IFNULL(temp.PLAYER_IDS, '') <> IFNULL(ex.PLAYER_IDS, '')
-             THEN 1 ELSE 0 END as PLAYERS_LIST_CHANGED,
-            ex.PLAYER_IDS as OLD_PLAYER_IDS,
-            temp.PLAYER_IDS as NEW_PLAYER_IDS,
-            CASE WHEN abs(temp.DESCRIPTION_REAL_LENGTH - ex.DESCRIPTION_REAL_LENGTH) * 
-            1.0 / (ex.DESCRIPTION_REAL_LENGTH + 1) > {PERCENTAGE_CHANGE_TO_TRIGGER} THEN 1 ELSE 0 END
-            as DESCRIPTION_SIGNIFICANTLY_CHANGED,
-            ex.DESCRIPTION_TRUNCATED as OLD_DESCRIPTION_TRUNCATED,
-            temp.DESCRIPTION_TRUNCATED as NEW_DESCRIPTION_TRUNCATED,
-            CASE WHEN IFNULL(temp.DESCRIPTION_TRUNCATED, '') <> IFNULL(ex.DESCRIPTION_TRUNCATED, '') 
-            THEN 1 ELSE 0 END as DESCRIPTION_CHANGED,
-            CASE WHEN IFNULL(temp.LAST_MESSAGE_ID, '') <> IFNULL(ex.LAST_MESSAGE_ID, '')
-            THEN 1 ELSE 0 END as NEW_MESSAGE,
-            temp.LAST_MESSAGE_TEXT as NEW_MESSAGE_TEXT,
-            temp.AUTHORS as AUTHORS,
-            temp.AUTHORS_IDS as AUTHORS_IDS,
-            temp.MODE as GAME_MODE,
-            temp.FORMAT as GAME_FORMAT,
-            temp.FORUM_THREAD_ID as FORUM_THREAD_ID,
-            temp.LAST_MESSAGE_ID as NEW_LAST_MESSAGE_ID
-            FROM DOMAIN_GAMES_TEMP as temp
-            LEFT OUTER JOIN DOMAIN_GAMES as ex
-            ON (temp.DOMAIN = ex.DOMAIN AND temp.ID = ex.ID)
-        )
-        SELECT *
-        FROM changes_all
-        WHERE GAME_NEW + NAME_CHANGED + PASSING_SEQUENCE_CHANGED + START_TIME_CHANGED + 
-        END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + 
-        DESCRIPTION_CHANGED + NEW_MESSAGE > 0
-        """
-        res = self.query(create_query, raise_on_error=False)
-
-        assert res is None, res["Exception_text"].iloc[0]
-
         return None
 
     def find_domains_due(self, delta: int) -> typing.List[Domain]:

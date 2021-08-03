@@ -809,6 +809,7 @@ class Change:
     game_mode: GameMode
     game_format: GameFormat
     authors: typing.List[str]
+    authors_ids: typing.List[int]
     forum_thread_id: int
 
     @classmethod
@@ -840,6 +841,7 @@ class Change:
         init_dict["game_format"] = GameFormat(init_dict["game_format"])
         init_dict["domain"] = Domain.from_url(init_dict["domain"])
         init_dict["authors"] = EncounterGame.authors_list_from_str(init_dict["authors"])
+        init_dict["authors_ids"] = EncounterGame.authors_list_from_str(init_dict["authors_ids"], True)
 
         if init_dict["forum_thread_id"] is not None:
             init_dict["forum_thread_id"] = int(init_dict["forum_thread_id"])
@@ -854,7 +856,7 @@ class Change:
                 self.id, self.new_name, self.game_mode, self.game_format,
                 self.new_passing_sequence, self.new_start_time, self.new_end_time,
                 self.new_player_ids, self.new_description_truncated,
-                self.authors, self.forum_thread_id, self.new_last_message_id,
+                self.authors, self.authors_ids, self.forum_thread_id, self.new_last_message_id,
                 self.new_message_text,
             ).to_str(language)
 
