@@ -1,7 +1,7 @@
 """
 DB Updater process
 """
-
+import datetime
 import os
 import sys
 
@@ -42,19 +42,33 @@ def update_db() -> None:
             driver = get_driver(CHROME_DRIVER_PATH)
 
         for upd in updates:
+            # noinspection PyBroadException
+            try:
+                bot.send_message(
+                    upd.user_id, upd.msg, parse_mode="HTML",
+                )
+                if upd.has_diffpic:
+                    with upd.diffpic(driver) as dp:
+                        # noinspection PyBroadException
+                        try:
+                            bot.send_photo(upd.user_id, dp)
+                        except Exception:
+                            with open(dp.name, "rb") as pic:
+                                bot.send_document(upd.user_id, pic)
 
-            bot.send_message(
-                upd.user_id, upd.msg, parse_mode="HTML",
-            )
-            if upd.has_diffpic:
-                with upd.diffpic(driver) as dp:
-                    bot.send_photo(upd.user_id, dp)
+                upd.delivered_ts = datetime.datetime.utcnow()
+            except Exception as e:
+                print(e)
+                upd.delivered = None
 
+        db.updates_to_db(updates)
         db.commit_update()
         if driver is not None:
             driver.quit()
 
-    print(len(updates), "message(s) sent")
+    succ_deliveries = [u for u in updates if u.delivered_ts]
+    unsucc_deliveries = [u for u in updates if not u.delivered_ts]
+    print(f"{len(succ_deliveries)} message(s) sent, {len(unsucc_deliveries)} failed deliveries")
 
     return None
 

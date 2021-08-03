@@ -13,7 +13,7 @@ from sqlite3 import IntegrityError
 
 import pandas as pd
 
-from meta import Domain, EncounterGame, Rule, GameFormat, Language, Change, Update
+from meta import Domain, EncounterGame, Rule, GameFormat, Language, Update
 from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
     InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS
 
@@ -77,6 +77,7 @@ class EncounterNewsDB:
         DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
         DESCRIPTION_REAL_LENGTH int,
         AUTHORS varchar(250),
+        AUTHORS_IDS varchar(250),
         FORUM_THREAD_ID int,
         LAST_MESSAGE_ID int,
         LAST_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
@@ -108,6 +109,7 @@ class EncounterNewsDB:
                 DESCRIPTION_TRUNCATED varchar({MAX_DESCRIPTION_LENGTH + 3}),
                 DESCRIPTION_REAL_LENGTH int,
                 AUTHORS varchar(250),
+                AUTHORS_IDS varchar(250),
                 FORUM_THREAD_ID int,
                 LAST_MESSAGE_ID int,
                 LAST_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
@@ -143,8 +145,9 @@ class EncounterNewsDB:
                 NEW_MESSAGE int,
                 NEW_MESSAGE_TEXT varchar({MAX_LAST_MESSAGE_LENGTH + 3}),
                 AUTHORS varchar(250),
+                AUTHORS_IDS varchar(250),
                 MODE int,
-                FORMAT int,
+                GAME_FORMAT int,
                 FORUM_THREAD_ID int,
                 NEW_LAST_MESSAGE_ID int,
                 PRIMARY KEY (DOMAIN, ID)
@@ -205,6 +208,7 @@ class EncounterNewsDB:
             THEN 1 ELSE 0 END as NEW_MESSAGE,
             temp.LAST_MESSAGE_TEXT as NEW_MESSAGE_TEXT,
             temp.AUTHORS as AUTHORS,
+            temp.AUTHORS_IDS as AUTHORS_IDS,
             temp.MODE as GAME_MODE,
             temp.FORMAT as GAME_FORMAT,
             temp.FORUM_THREAD_ID as FORUM_THREAD_ID,
@@ -219,6 +223,17 @@ class EncounterNewsDB:
         END_TIME_CHANGED + PLAYERS_LIST_CHANGED + DESCRIPTION_SIGNIFICANTLY_CHANGED + 
         DESCRIPTION_CHANGED + NEW_MESSAGE > 0
         """, raise_on_error=False)
+
+        self.query("""
+                        CREATE TABLE UPDATE_STATUS
+                        (
+                        USER_ID int,
+                        DOMAIN varchar(100),
+                        GAME_ID int,
+                        CHANGE varchar(1000),
+                        DELIVERED TIMESTAMP_NTZ
+                        )
+                        """, raise_on_error=False)
 
         return None
 
@@ -621,6 +636,7 @@ class EncounterNewsDB:
             THEN 1 ELSE 0 END as NEW_MESSAGE,
             temp.LAST_MESSAGE_TEXT as NEW_MESSAGE_TEXT,
             temp.AUTHORS as AUTHORS,
+            temp.AUTHORS_IDS as AUTHORS_IDS,
             temp.MODE as GAME_MODE,
             temp.FORMAT as GAME_FORMAT,
             temp.FORUM_THREAD_ID as FORUM_THREAD_ID,
@@ -766,9 +782,14 @@ class EncounterNewsDB:
 
         return res
 
-    def get_updates(self: EncounterNewsDB) -> typing.List[Update]:
-        domains_due = self.find_domains_due(UPDATE_FREQUENCY_SECONDS)
-        # domains_due = [Domain("kharkiv")]         # For test purposes only
+    def get_updates(
+            self: EncounterNewsDB,
+            domains_due_override: typing.List[Domain] = None,
+    ) -> typing.List[Update]:
+        if domains_due_override:
+            domains_due = domains_due_override
+        else:
+            domains_due = self.find_domains_due(UPDATE_FREQUENCY_SECONDS)
 
         if domains_due:
             new_games = []
@@ -789,6 +810,16 @@ class EncounterNewsDB:
         ]
 
         return notifs
+
+    def updates_to_db(self, updates: typing.List[Update]) -> None:
+        df = pd.DataFrame(
+            [
+                u.to_json()
+                for u in updates
+            ]
+        )
+        df.to_sql("UPDATE_STATUS", self._db_conn, if_exists="append", index=False)
+        return None
 
     def delete_user_rule_by_id(self, tg_id: int, rule_id: str) -> None:
         query = """
@@ -830,4 +861,5 @@ if __name__ == '__main__':
     from constants import DB_LOCATION
     with EncounterNewsDB(DB_LOCATION) as db_:
         d_ = Domain("kharkiv")
-        db_.update_domains([d_])
+        db_.get_updates(domains_due_override=[d_])
+        db_.commit_update()

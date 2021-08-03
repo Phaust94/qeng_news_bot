@@ -5,7 +5,6 @@ import re
 import difflib
 import html
 from itertools import zip_longest
-
 import typing
 
 Token = str

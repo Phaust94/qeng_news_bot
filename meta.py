@@ -140,6 +140,8 @@ class Domain:
         params = parse_qs(sp.query)
         lang = params.get("lang", [''])[0]
         dom = re.findall(DOMAIN_REGEX, sp.netloc)[0]
+        if dom.startswith("m."):
+            dom = dom[2:]
         lang = Language.from_str(lang)
         inst = cls(dom, lang, is_https)
         return inst
@@ -277,6 +279,7 @@ class EncounterGame:
     player_ids: typing.List[int]
     game_description: str
     authors: typing.List[str]
+    author_ids: typing.List[int]
     forum_thread_id: int
     last_comment_id: typing.Optional[int]
     last_comment_text: typing.Optional[str]
@@ -370,9 +373,16 @@ class EncounterGame:
     def authors_list_str(self) -> str:
         return "%".join(self.authors)
 
+    @property
+    def authors_ids_list_str(self) -> str:
+        return "%".join(map(str, self.author_ids))
+
     @staticmethod
-    def authors_list_from_str(authors_list: str) -> typing.List[str]:
-        return authors_list.split("%")
+    def authors_list_from_str(authors_list: str, cast_ids: bool = False) -> typing.List[typing.Union[int, str]]:
+        res = authors_list.split("%")
+        if cast_ids:
+            res = [int(x) for x in res]
+        return res
 
     @classmethod
     def _forum_url(cls, domain: Domain, forum_thread_id: int) -> str:
@@ -397,7 +407,7 @@ class EncounterGame:
         game_mode = html.find("img", id="ImgGameType")["title"]
         game_mode = GameMode.from_str(game_mode)
         spans = html.find_all("span", class_="title")
-        is_judged = game_mode in {GameMode.Competition, GameMode.PhotoHunt, GameMode.PhotoExtreme}
+        is_judged = game_mode in {GameMode.Competition, GameMode.PhotoHunt}
         if not is_judged:
             format_, seq_ = [s.parent.find_all("span")[1].text for s in spans[:2]]
         else:
@@ -421,10 +431,15 @@ class EncounterGame:
 
         game_descr = html.find("div", class_="divDescr").text
         nbsp = u'\xa0'
+        game_descr = game_descr or ""
         game_descr = game_descr.replace(nbsp, "").replace("\n\n", "\n").replace("\n \n", "\n")
 
         authors = [
             el.text
+            for el in spans[ind - 2 - is_judged].parent.find_all("a", id="lnkAuthor")
+        ]
+        author_ids = [
+            int(el["href"].split("=")[-1])
             for el in spans[ind - 2 - is_judged].parent.find_all("a", id="lnkAuthor")
         ]
 
@@ -449,7 +464,7 @@ class EncounterGame:
             start, end,
             player_ids,
             game_descr,
-            authors, tid,
+            authors, author_ids, tid,
             msg_id, msg,
         )
         return inst
@@ -487,12 +502,7 @@ class EncounterGame:
         domain = Domain.from_url(json["DOMAIN"])
 
         desc = json["DESCRIPTION_TRUNCATED"]
-        # if json["DESCRIPTION_REAL_LENGTH"] > MAX_DESCRIPTION_LENGTH and desc.endswith("..."):
-        #     desc = desc[:-3]
-
         last_comment = json["LAST_MESSAGE_TEXT"]
-        # if len(last_comment) > MAX_LAST_MESSAGE_LENGTH:
-        #     last_comment = last_comment[:-3]
 
         inst = cls(
             domain,
@@ -501,6 +511,7 @@ class EncounterGame:
             json["START_TIME"], json["END_TIME"],
             ids_, desc,
             cls.authors_list_from_str(json["AUTHORS"]),
+            cls.authors_list_from_str(json["AUTHORS_IDS"], True),
             json["FORUM_THREAD_ID"],
             json["LAST_MESSAGE_ID"],
             last_comment,
@@ -563,6 +574,7 @@ class EncounterGame:
             "DESCRIPTION_TRUNCATED": self.game_description_truncated,
             "DESCRIPTION_REAL_LENGTH": len(self.game_description),
             "AUTHORS": self.authors_list_str,
+            "AUTHORS_IDS": self.authors_ids_list_str,
             "FORUM_THREAD_ID": self.forum_thread_id,
             "LAST_MESSAGE_ID": self.last_comment_id,
             "LAST_MESSAGE_TEXT": self.last_comment_text_truncated,
@@ -755,6 +767,9 @@ class ChangeType(enum.Enum):
         }
         return di
 
+    def __str__(self) -> str:
+        return self.localization_dict()[self][Language.English]
+
 
 @dataclass
 class Change:
@@ -777,8 +792,8 @@ class Change:
     new_end_time: datetime.datetime
     old_player_ids: typing.List[int]
     new_player_ids: typing.List[int]
-    old_description_truncated: str
-    new_description_truncated: str
+    old_description_truncated: typing.Optional[str]
+    new_description_truncated: typing.Optional[str]
     new_message_text: typing.Optional[str]
     new_last_message_id: typing.Optional[int]
 
@@ -925,6 +940,15 @@ class Change:
         res = "\n".join(pts)
         return res
 
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+        chng = str(list(map(str, self.current_changes)))
+        res = {
+            "DOMAIN": self.domain.full_url,
+            "GAME_ID": self.id,
+            "CHANGE": chng,
+        }
+        return res
+
     def __str__(self):
         return self.to_str(Language.English)
 
@@ -934,6 +958,7 @@ class Update:
     user_id: int
     language: Language
     change: Change
+    delivered_ts: datetime.datetime = None
 
     @staticmethod
     def test_fullpage_screenshot(
@@ -998,8 +1023,8 @@ class Update:
     @contextmanager
     def diffpic(self, driver: webdriver.Chrome):
         pic_fd, pic_path = self.create_diff(
-            self.change.old_description_truncated,
-            self.change.new_description_truncated,
+            self.change.old_description_truncated or "",
+            self.change.new_description_truncated or "",
             lang=self.language,
             driver=driver,
         )
@@ -1024,6 +1049,14 @@ class Update:
             user_id, lang, change
         )
         return inst
+
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+        res = {
+            "USER_ID": self.user_id,
+            **self.change.to_json(),
+            "DELIVERED": self.delivered_ts,
+        }
+        return res
 
 
 if __name__ == '__main__':
