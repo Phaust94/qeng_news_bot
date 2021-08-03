@@ -191,7 +191,7 @@ MENU_LOCALIZATION = {
         Hello! I am a bot who will help you always be up-to-date 
         with all Encounter games. I can track all games in a given domain, track a certain game, or
          track all games where your team (or you) participates. When there are any changes to a game announcement,
-         or there's a new game going on - I'll semd you a message. Now I suggest you add your first domain 
+         or there's a new game going on - I'll send you a message. Now I suggest you add your first domain 
          tracking rule.""",
         Language.Ukrainian: """
         Привіт! Я - бот, що допоможе вам завжди бути в курсі всіх новин Енки.
