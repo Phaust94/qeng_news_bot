@@ -20,8 +20,6 @@ from constants import DB_LOCATION
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
-DB_LOC = os.path.join(__file__, "..", "data", "bot_db - Copy (3).sqlite")
-
 
 def get_driver(executable_path: str):
     chrome_options = Options()

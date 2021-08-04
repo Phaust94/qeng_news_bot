@@ -1011,7 +1011,7 @@ class Update:
         res = html_diffs(old_description, new_description, *names)
         html_fd, html_path = tempfile.mkstemp(suffix=".html")
         pic_fd, pic_path = tempfile.mkstemp(suffix=".png")
-        with open(html_path, 'w') as tmp:
+        with open(html_path, 'w', encoding='utf-8') as tmp:
             tmp.write(res)
         try:
             cls.test_fullpage_screenshot(f"file://{html_path}", pic_path, driver)
