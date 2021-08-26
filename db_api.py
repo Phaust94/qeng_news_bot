@@ -15,7 +15,7 @@ import pandas as pd
 
 from meta import Domain, EncounterGame, Rule, GameFormat, Language, Update
 from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
-    InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS
+    InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS, MIN_HOURS_GAME_CHANGE_NOTIFY
 
 __all__ = [
     "EncounterNewsDB",
@@ -597,8 +597,8 @@ class EncounterNewsDB:
                         1=0
                         OR dd.GAME_NEW = 1
                         OR dd.NAME_CHANGED = 1
-                        OR dd.PASSING_SEQUENCE_CHANGED = 1
-                        OR dd.START_TIME_CHANGED = 1
+                        OR dd.PASSING_SEQUEN`CE_CHANGED = 1
+                        OR (julianday(NEW_START_TIME) - julianday(OLD_START_TIME)) * 24 > {MIN_HOURS_GAME_CHANGE_NOTIFY}
                         OR dd.DESCRIPTION_SIGNIFICANTLY_CHANGED = 1
                     )
                     AND us.IS_COARSE_RULE = 1
@@ -610,6 +610,15 @@ class EncounterNewsDB:
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.PLAYER_ID || '%'
                     AND dd.DOMAIN = us.DOMAIN
                     AND us.IS_COARSE_RULE = 0
+                    AND (
+                        dd.PLAYERS_LIST_CHANGED - 
+                        (
+                            dd.GAME_NEW + dd.NAME_CHANGED + dd.PASSING_SEQUENCE_CHANGED + dd.START_TIME_CHANGED +
+                            dd.END_TIME_CHANGED + dd.DESCRIPTION_SIGNIFICANTLY_CHANGED + dd.DESCRIPTION_CHANGED + 
+                            dd.NEW_MESSAGE
+                        )
+                        != 1
+                    )
                 )
                 OR
                 (
@@ -618,6 +627,15 @@ class EncounterNewsDB:
                     AND dd.NEW_PLAYER_IDS LIKE '%' || us.TEAM_ID || '%'
                     AND dd.DOMAIN = us.DOMAIN
                     AND us.IS_COARSE_RULE = 0
+                    AND (
+                        dd.PLAYERS_LIST_CHANGED - 
+                        (
+                            dd.GAME_NEW + dd.NAME_CHANGED + dd.PASSING_SEQUENCE_CHANGED + dd.START_TIME_CHANGED +
+                            dd.END_TIME_CHANGED + dd.DESCRIPTION_SIGNIFICANTLY_CHANGED + dd.DESCRIPTION_CHANGED + 
+                            dd.NEW_MESSAGE
+                        )
+                        != 1
+                    )
                 )
                 OR 
                 (
