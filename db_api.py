@@ -597,7 +597,7 @@ class EncounterNewsDB:
                         1=0
                         OR dd.GAME_NEW = 1
                         OR dd.NAME_CHANGED = 1
-                        OR dd.PASSING_SEQUEN`CE_CHANGED = 1
+                        OR dd.PASSING_SEQUENCE_CHANGED = 1
                         OR (julianday(NEW_START_TIME) - julianday(OLD_START_TIME)) * 24 > {MIN_HOURS_GAME_CHANGE_NOTIFY}
                         OR dd.DESCRIPTION_SIGNIFICANTLY_CHANGED = 1
                     )
