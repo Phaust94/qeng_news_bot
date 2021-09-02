@@ -40,6 +40,8 @@ def update_db() -> None:
             driver = get_driver(CHROME_DRIVER_PATH)
 
         for upd in updates:
+
+            upd.sent_ts = datetime.datetime.utcnow()
             # noinspection PyBroadException
             try:
                 bot.send_message(
@@ -54,18 +56,18 @@ def update_db() -> None:
                             with open(dp.name, "rb") as pic:
                                 bot.send_document(upd.user_id, pic)
 
-                upd.delivered_ts = datetime.datetime.utcnow()
+                upd.is_delivered = True
             except Exception as e:
                 print(e)
-                upd.delivered = None
+                upd.is_delivered = None
 
         db.updates_to_db(updates)
         db.commit_update()
         if driver is not None:
             driver.quit()
 
-    succ_deliveries = [u for u in updates if u.delivered_ts]
-    unsucc_deliveries = [u for u in updates if not u.delivered_ts]
+    succ_deliveries = [u for u in updates if u.sent_ts]
+    unsucc_deliveries = [u for u in updates if not u.sent_ts]
     print(f"{len(succ_deliveries)} message(s) sent, {len(unsucc_deliveries)} failed deliveries")
 
     return None

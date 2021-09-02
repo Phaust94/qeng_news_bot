@@ -196,7 +196,8 @@ class EncounterNewsDB:
                         DOMAIN varchar(100),
                         GAME_ID int,
                         CHANGE varchar(1000),
-                        DELIVERED TIMESTAMP_NTZ
+                        DELIVERED TIMESTAMP_NTZ,
+                        IS_DELIVERED int
                         )
                         """, raise_on_error=False)
 

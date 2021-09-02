@@ -967,7 +967,8 @@ class Update:
     user_id: int
     language: Language
     change: Change
-    delivered_ts: datetime.datetime = None
+    sent_ts: datetime.datetime = None
+    is_delivered: bool = False
 
     @staticmethod
     def test_fullpage_screenshot(
@@ -1063,7 +1064,8 @@ class Update:
         res = {
             "USER_ID": self.user_id,
             **self.change.to_json(),
-            "DELIVERED": self.delivered_ts,
+            "DELIVERED": self.sent_ts,
+            "IS_DELIVERED": int(self.is_delivered),
         }
         return res
 
@@ -1073,15 +1075,3 @@ if __name__ == '__main__':
     games_ = Domain.from_url("http://kharkiv.en.cx/?lang=ru")
     res_ = games_.get_games()
     print(res_)
-
-    # print(GameFormat.localization_dict())
-
-    # print(Domain.from_url("krak.en.cx/?lang=dido"))
-    # print(list(map(str, games_)))
-    # print("a")
-    # print(GameMode(1))
-    # print(PassingSequence.from_str("Linear"))
-    # print(PassingSequence.from_str("Линейная"))
-    # print(GameFormat.from_str("Командами"))
-    # print(GameFormat.from_str("Team"))
-    # print(GameFormat.from_str("Storm"))
