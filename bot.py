@@ -358,6 +358,13 @@ def info(update: Update, context: CallbackContext) -> None:
     return None
 
 
+# noinspection PyUnusedLocal
+def help_(update: Update, context: CallbackContext) -> None:
+    msg = localize(MenuItem.Info, update, context)
+    update.message.reply_text(msg, parse_mode="HTML")
+    return None
+
+
 h = functools.partial(h_full, cancel_func=settings_prompt)
 
 STATE_TO_HANDLERS = {
@@ -429,6 +436,8 @@ def main():
     )
 
     updater.dispatcher.add_handler(conv_handler)
+
+    updater.dispatcher.add_handler(CommandHandler("help", help_))
 
     updater.dispatcher.add_handler(CommandHandler("info", info))
 

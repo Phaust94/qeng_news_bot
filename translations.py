@@ -72,6 +72,7 @@ class MenuItem(enum.Enum):
     MainMenu = enum.auto()
     Error = enum.auto()
     Info = enum.auto()
+    Help = enum.auto()
     AddRule = enum.auto()
     DeleteRule = enum.auto()
     ListRules = enum.auto()
@@ -179,6 +180,14 @@ MENU_LOCALIZATION = {
         Language.Russian: "Это новостной бот Энки\nВерсия",
         Language.English: "This is an Encounter news bot\nVersion",
         Language.Ukrainian: "Це новинний бот мережі ігр Енкаунтер\nВерсія",
+    },
+    MenuItem.Help: {
+        Language.Russian: "Прочитать информацию о боте можно "
+                          "<a href='https://telegra.ph/Encounter-News---Bot-09-20' target='_blank'>тут</a>",
+        Language.English: "Read up more about this bot"
+                          "<a href='https://telegra.ph/Encounter-News---Bot-English-09-20' target='_blank'>here</a>",
+        Language.Ukrainian: "Прочитати інформацію про бота можна"
+                            "<a href='https://telegra.ph/Encounter-News---Bot-Ukrainian-09-20' target='_blank'>тут</a>",
     },
     MenuItem.Welcome: {
         Language.Russian: """
