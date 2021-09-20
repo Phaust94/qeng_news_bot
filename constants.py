@@ -16,6 +16,7 @@ __all__ = [
     "DEFAULT_DAYS_IN_FUTURE",
     "MAX_USER_RULES_ALLOWED",
     "MIN_HOURS_GAME_CHANGE_NOTIFY",
+    "PERCENTAGE_CHANGE_TO_TRIGGER",
 ]
 
 DB_LOCATION = os.path.join(__file__, "..", "data", "bot_db.sqlite")

@@ -444,9 +444,21 @@ MENU_LOCALIZATION = {
     },
     MenuItem.ChangeParticipantsJoiner:
         {
-            Language.Russian: ("\nНовых заявок: ", "\nСняли заявку: ", "\nВсего заявок: "),
-            Language.English: ("\nNew participants: ", "\nDismissed participants: ", "\nTotal participants: "),
-            Language.Ukrainian: ("\nНових заявок: ", "\nЗняли заявку: ", "\nВсього заявок: "),
+            Language.Russian: (
+                "Новых заявок: {n_new} {new}",
+                "Сняли заявку: {n_dropped} {dropped}",
+                "Всего заявок: {tot}",
+            ),
+            Language.English: (
+                "New participants: {n_new} {new}",
+                "Dismissed participants: {n_dropped} {dropped}",
+                "Total participants: {tot}"
+            ),
+            Language.Ukrainian: (
+                "Нових заявок: {n_new} {new}",
+                "Зняли заявку: {n_dropped} {dropped}",
+                "Всього заявок: {tot}",
+            ),
         },
     MenuItem.NewGame: {
         Language.Russian: "Новая игра",
