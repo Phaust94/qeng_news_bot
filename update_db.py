@@ -68,8 +68,8 @@ def update_db() -> None:
         if driver is not None:
             driver.quit()
 
-    succ_deliveries = [u for u in updates if u.sent_ts]
-    unsucc_deliveries = [u for u in updates if not u.sent_ts]
+    succ_deliveries = [u for u in updates if u.is_delivered]
+    unsucc_deliveries = [u for u in updates if not u.is_delivered]
     print(f"{len(succ_deliveries)} message(s) sent, {len(unsucc_deliveries)} failed deliveries")
 
     return None

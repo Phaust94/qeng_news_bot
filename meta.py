@@ -107,6 +107,18 @@ class Domain:
     is_en_cx: bool = True
 
     @property
+    def pretty_name(self) -> str:
+        res = [self.name, "en.cx" if self.is_en_cx else "quest.ua"]
+        res = [x for x in res if x]
+        res = ".".join(res)
+        return res
+
+    @property
+    def pretty_href_name(self) -> str:
+        res = f"<a href={self.full_url!r} target='_blank'>{self.pretty_name}</a>"
+        return res
+
+    @property
     def base_url(self) -> str:
         letter = "s" if self.is_https else ""
         top_level = "en.cx" if self.is_en_cx else "quest.ua"
@@ -711,7 +723,12 @@ class Rule:
         }
         return di
 
-    def to_str(self, language: Language, add_href: bool = False) -> str:
+    def to_str(
+        self,
+        language: Language,
+        add_href: bool = False,
+        force_no_href: bool = False,
+    ) -> str:
         bad_rule = f"Bad rule: " \
                    f"domain={self.domain}, game_id={self.game_id}, " \
                    f"player_id={self.player_id}, team_id={self.team_id}, author_id={self.author_id}"
@@ -731,7 +748,7 @@ class Rule:
             ]
             pts.extend([
                 concat,
-                self.domain.name,
+                self.domain.pretty_href_name if not force_no_href else self.domain.pretty_name,
             ])
             if add_href:
                 rt = RuleType.from_attr(nones[0])
@@ -741,10 +758,10 @@ class Rule:
                 pts.append(url)
         else:
             concat = MENU_LOCALIZATION[MenuItem.DomainText][language]
-            if add_href:
-                pts = [concat, f"<a href={self.domain.full_url!r} target='_blank'>{self.domain.name}</a>"]
+            if not force_no_href:
+                pts = [concat, self.domain.pretty_href_name]
             else:
-                pts = [concat, self.domain.full_url]
+                pts = [concat, self.domain.pretty_name]
 
         if not add_href:
             pts.append(f"[{self.rule_id}]")

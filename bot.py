@@ -116,7 +116,7 @@ def rule_type_choice_done(update: Update, context: CallbackContext) -> int:
 
 
 def delete_rule(update: Update, context: CallbackContext) -> int:
-    rules = _find_rules(update, context)
+    rules = _find_rules(update, context, add_href=False, force_no_href=True)
     if rules:
         kb = [
             [r]
@@ -133,20 +133,23 @@ def delete_rule(update: Update, context: CallbackContext) -> int:
         return settings_prompt(update, context)
 
 
-def _find_rules(update: Update, context: CallbackContext, add_href: bool = False) -> typing.List[str]:
+def _find_rules(
+    update: Update, context: CallbackContext,
+    add_href: bool = False, force_no_href: bool = False,
+) -> typing.List[str]:
     chat_id = update.message.chat_id
     with EncounterNewsDB(DB_LOCATION) as db:
         rules = db.get_user_rules(chat_id)
     lang = find_user_lang(update, context)
     rules = [
-        r.to_str(lang, add_href)
+        r.to_str(lang, add_href=add_href, force_no_href=force_no_href)
         for r in rules
     ]
     return rules
 
 
 def list_rules(update: Update, context: CallbackContext) -> int:
-    rules = _find_rules(update, context, add_href=True)
+    rules = _find_rules(update, context, add_href=True, force_no_href=False)
     msg = "\n".join(
         r
         for r in rules
@@ -191,7 +194,7 @@ def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
     msg = localize(item, update, context)
     lang = find_user_lang(update, context)
     msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
-    update.message.reply_text(msg)
+    update.message.reply_text(msg, parse_mode='HTML')
 
     return settings_prompt(update, context)
 
@@ -213,7 +216,7 @@ def wait_rule_to_delete(update: Update, context: CallbackContext) -> int:
         rule = db.get_user_rule_by_id(chat_id, rule_id)
         user_lang = find_user_lang(update, context)
 
-        if rule_text != rule.to_str(user_lang):
+        if rule_text != rule.to_str(user_lang, add_href=False, force_no_href=True):
             msg = localize(MenuItem.RuleIDInvalid, update, context)
             update.message.reply_text(msg)
             return settings_prompt(update, context)
@@ -223,7 +226,7 @@ def wait_rule_to_delete(update: Update, context: CallbackContext) -> int:
         db.prune_domain_query_status()
     msg = localize(MenuItem.RuleDeleted, update, context)
     msg = msg.format(rule.to_str(user_lang), disable_web_page_preview=True)
-    update.message.reply_text(msg, disable_web_page_preview=True)
+    update.message.reply_text(msg, disable_web_page_preview=True, parse_mode='HTML')
     return settings_prompt(update, context)
 
 
@@ -312,7 +315,7 @@ def add_granular_rule_get_id(
     msg = localize(item, update, context)
     lang = find_user_lang(update, context)
     msg = msg.format(rule.to_str(lang), disable_web_page_preview=True)
-    update.message.reply_text(msg)
+    update.message.reply_text(msg, parse_mode='HTML')
 
     return settings_prompt(update, context)
 

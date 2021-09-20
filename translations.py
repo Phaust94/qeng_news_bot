@@ -321,7 +321,7 @@ MENU_LOCALIZATION = {
         Send game ID you wish to track. 
          E.g. for game http://kharkiv.en.cx/GameDetails.aspx?gid=72405, ID is 72405""",
         Language.Ukrainian: """
-        Надішліть ID гриЮ яку ви хочете відстежувати.
+        Надішліть ID гри, яку ви хочете відстежувати.
          Наприклад, для гри http://kharkiv.en.cx/GameDetails.aspx?gid=72405 ID буде 72405"""
     },
     MenuItem.DomainEmptyError: {
