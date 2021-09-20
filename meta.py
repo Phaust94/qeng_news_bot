@@ -39,7 +39,8 @@ __all__ = [
 
 
 DOMAIN_REGEX = r"([a-zA-Z0-9]+?)\.en\.cx"
-# LANGUAGE_REGEX = r"\?.*?lang=([a-zA-Z])"
+DOMAIN_REGEX_QUEST_UA = r"([a-zA-Z0-9]+?)\.quest\.ua"
+DOMAIN_REGEX_QUEST_UA_PLAIN = r"quest\.ua"
 
 CHROME_DEFAULT = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.2 (KHTML, like Gecko) Chrome/22.0.1216.0 Safari/537.2'"
 USER_AGENTS_FACTORY = UserAgent(fallback=CHROME_DEFAULT)
@@ -103,11 +104,16 @@ class Domain:
     name: str
     language: Language = Language.Russian
     is_https: bool = False
+    is_en_cx: bool = True
 
     @property
     def base_url(self) -> str:
         letter = "s" if self.is_https else ""
-        res = f"http{letter}://{self.name}.en.cx"
+        top_level = "en.cx" if self.is_en_cx else "quest.ua"
+        pts = [self.name, top_level]
+        pts = [x for x in pts if x]
+        host = ".".join(pts)
+        res = f"http{letter}://{host}"
         return res
 
     @property
@@ -139,11 +145,28 @@ class Domain:
         is_https = sp.scheme == 'https'
         params = parse_qs(sp.query)
         lang = params.get("lang", [''])[0]
-        dom = re.findall(DOMAIN_REGEX, sp.netloc)[0]
+
+        en_dom = re.findall(DOMAIN_REGEX, sp.netloc)
+        if en_dom:
+            dom = en_dom[0]
+            is_en_cx = True
+        else:
+            qua_dom = re.findall(DOMAIN_REGEX_QUEST_UA, sp.netloc)
+            if qua_dom:
+                dom = qua_dom[0]
+                is_en_cx = False
+            else:
+                is_plain_quest_ua = re.findall(DOMAIN_REGEX_QUEST_UA_PLAIN, sp.netloc)
+                if is_plain_quest_ua:
+                    dom = ""
+                    is_en_cx = False
+                else:
+                    raise IndexError(f"Incorrect URL: {url}")
+
         if dom.startswith("m."):
             dom = dom[2:]
         lang = Language.from_str(lang)
-        inst = cls(dom, lang, is_https)
+        inst = cls(dom, lang, is_https, is_en_cx)
         return inst
 
     def get_games(self) -> typing.List[EncounterGame]:
@@ -228,8 +251,6 @@ class GameFormat(CustomNamedEnum):
             for k, v in cls.__members__.items()
         }
         return di[self][lang]
-
-
 
 
 class PassingSequence(CustomNamedEnum):
@@ -1080,6 +1101,7 @@ class Update:
 
 if __name__ == '__main__':
     # games_ = Domain.from_url("http://kramatorsk.en.cx").get_games()
-    games_ = Domain.from_url("http://kharkiv.en.cx/?lang=ru")
+    # games_ = Domain.from_url("http://kharkiv.en.cx/?lang=ru")
+    games_ = Domain.from_url("http://od.quest.ua/?lang=ru")
     res_ = games_.get_games()
     print(res_)

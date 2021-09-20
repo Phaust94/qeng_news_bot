@@ -503,14 +503,23 @@ class EncounterNewsDB:
         WHERE 1=1
         AND rn = 1
         AND START_TIME <= :end_date
+        AND START_TIME >= :start_date
         ORDER BY START_TIME
         """
+        now_ = datetime.datetime.utcnow()
         if n_days_in_future is None:
             end_date = datetime.datetime(2100, 1,  1)
         else:
-            end_date = datetime.datetime.utcnow() + datetime.timedelta(days=n_days_in_future)
+            end_date = now_ + datetime.timedelta(days=n_days_in_future)
 
-        res = self.query(query, {"user_id": tg_id, "end_date": end_date})
+        res = self.query(
+            query,
+            {
+                "user_id": tg_id,
+                "end_date": end_date,
+                "start_date": now_,
+            }
+        )
         games = [
             EncounterGame.from_json(row)
             for _, row in res.iterrows()

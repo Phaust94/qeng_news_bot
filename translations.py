@@ -20,6 +20,7 @@ class Language(enum.Enum):
     English = enum.auto()
     Ukrainian = enum.auto()
     DemoEnglish = enum.auto()
+    QuestRussian = enum.auto()
 
     @classmethod
     def _str_dict(cls) -> typing.Dict[Language, str]:
@@ -565,17 +566,20 @@ MENU_LOCALIZATION = {
         Language.English: "Quest",
         Language.DemoEnglish: "Real",
         Language.Ukrainian: "Сутичка",
+        Language.QuestRussian: "Квест",
     },
     MenuItem.GameModePoints: {
         Language.Russian: "Точки",
         Language.English: "Points",
         Language.Ukrainian: "Точки",
+        Language.QuestRussian: "ЛайтКвест",
     },
     MenuItem.GameModeBrainstorm: {
         Language.Russian: "Мозговой штурм",
         Language.English: "Brainstorm",
         Language.DemoEnglish: "Brainstorming",
         Language.Ukrainian: "Мозковий штурм",
+        Language.QuestRussian: "Онлайн игры",
     },
     MenuItem.GameModeQuiz: {
         Language.Russian: "Викторина",
