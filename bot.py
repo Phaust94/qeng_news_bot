@@ -54,7 +54,7 @@ def store_user_lang(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(lang_set_msg)
     welcome_msg = MENU_LOCALIZATION[MenuItem.Welcome][lang]
     welcome_msg = textwrap.dedent(welcome_msg).replace("\n", "")
-    update.message.reply_text(welcome_msg)
+    update.message.reply_text(welcome_msg, parse_mode="HTML")
     return settings_prompt(update, context)
 
 
@@ -360,7 +360,7 @@ def info(update: Update, context: CallbackContext) -> None:
 
 # noinspection PyUnusedLocal
 def help_(update: Update, context: CallbackContext) -> None:
-    msg = localize(MenuItem.Info, update, context)
+    msg = localize(MenuItem.Help, update, context)
     update.message.reply_text(msg, parse_mode="HTML")
     return None
 

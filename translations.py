@@ -195,18 +195,24 @@ MENU_LOCALIZATION = {
         всех новостей Энки. Я могу следить за всеми играми на определённом домене, за какой-то конкретной игрой 
         или за всеми играми вашей команды.
         Когда на сайте будут какие-то изменения в анонсе игры, или появятся новые игры - 
-        я обязательно вам об этом сообщу. Сейчас рекомендую добавить ваше первое правило отслеживания домена.""",
+        я обязательно вам об этом сообщу. 
+        Прочитайте моё описание <a href='https://telegra.ph/Encounter-News---Bot-09-20' target='_blank'>тут</a>
+        Сейчас рекомендую добавить ваше первое правило отслеживания домена.""",
         Language.English: """
         Hello! I am a bot who will help you always be up-to-date 
         with all Encounter games. I can track all games in a given domain, track a certain game, or
          track all games where your team (or you) participates. When there are any changes to a game announcement,
-         or there's a new game going on - I'll send you a message. Now I suggest you add your first domain 
+         or there's a new game going on - I'll send you a message.
+          Read my description <a href='https://telegra.ph/Encounter-News---Bot-English-09-20' target='_blank'>here</a>         
+          Now I suggest you add your first domain 
          tracking rule.""",
         Language.Ukrainian: """
         Привіт! Я - бот, що допоможе вам завжди бути в курсі всіх новин Енки.
         Я можу стежити за всіма іграми на визначеному домені, за якосюсь конкретною грою, 
         чи за всіма іграми вашої команди. Коли на сайті ставатимуться якісь зміни в анонсі гри, чи з'являться 
-        нові ігри - я обов'язково вам про це повідомлю. Зараз рекомендую вам додати ваше перше правило
+        нові ігри - я обов'язково вам про це повідомлю. 
+        Прочитайте мій опис <a href='https://telegra.ph/Encounter-News---Bot-Ukrainian-09-20' target='_blank'>тут</a>
+        Зараз рекомендую вам додати ваше перше правило
          відстежування домену.""",
     },
     MenuItem.AddRule: {
