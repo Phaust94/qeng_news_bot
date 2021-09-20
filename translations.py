@@ -184,9 +184,9 @@ MENU_LOCALIZATION = {
     MenuItem.Help: {
         Language.Russian: "Прочитать информацию о боте можно "
                           "<a href='https://telegra.ph/Encounter-News---Bot-09-20' target='_blank'>тут</a>",
-        Language.English: "Read up more about this bot"
+        Language.English: "Read up more about this bot "
                           "<a href='https://telegra.ph/Encounter-News---Bot-English-09-20' target='_blank'>here</a>",
-        Language.Ukrainian: "Прочитати інформацію про бота можна"
+        Language.Ukrainian: "Прочитати інформацію про бота можна "
                             "<a href='https://telegra.ph/Encounter-News---Bot-Ukrainian-09-20' target='_blank'>тут</a>",
     },
     MenuItem.Welcome: {
