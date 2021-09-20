@@ -197,7 +197,7 @@ MENU_LOCALIZATION = {
         Когда на сайте будут какие-то изменения в анонсе игры, или появятся новые игры - 
         я обязательно вам об этом сообщу. 
         Прочитайте моё описание <a href='https://telegra.ph/Encounter-News---Bot-09-20' target='_blank'>тут</a>.
-        Сейчас рекомендую добавить ваше первое правило отслеживания домена.""",
+         Сейчас рекомендую добавить ваше первое правило отслеживания домена.""",
         Language.English: """
         Hello! I am a bot who will help you always be up-to-date 
         with all Encounter games. I can track all games in a given domain, track a certain game, or
@@ -212,7 +212,7 @@ MENU_LOCALIZATION = {
         чи за всіма іграми вашої команди. Коли на сайті ставатимуться якісь зміни в анонсі гри, чи з'являться 
         нові ігри - я обов'язково вам про це повідомлю. 
         Прочитайте мій опис <a href='https://telegra.ph/Encounter-News---Bot-Ukrainian-09-20' target='_blank'>тут</a>.
-        Зараз рекомендую вам додати ваше перше правило відстежування домену.""",
+         Зараз рекомендую вам додати ваше перше правило відстежування домену.""",
     },
     MenuItem.AddRule: {
         Language.Russian: "Добавить правило слежения",
