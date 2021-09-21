@@ -40,7 +40,7 @@ def update_db() -> None:
             driver = get_driver(CHROME_DRIVER_PATH)
 
         for upd in updates:
-            if upd.user_id != 476001386:
+            if upd.change.domain.pretty_name == 'kharkiv.en.cx' and upd.change.id == 71875:
                 continue
 
             upd.sent_ts = datetime.datetime.utcnow()
