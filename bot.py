@@ -28,6 +28,10 @@ from bot_constants import h as h_full
 
 # noinspection PyUnusedLocal
 def prompt_language(update: Update, context: CallbackContext) -> int:
+
+    with EncounterNewsDB(DB_LOCATION) as db:
+        db.start_user_updates(update.message.chat_id)
+
     msg = "Hello! Which language do you want me to speak?"
     kb = [
         [v]
@@ -61,9 +65,14 @@ def store_user_lang(update: Update, context: CallbackContext) -> int:
 # noinspection PyUnusedLocal
 def settings_prompt(update: Update, context: CallbackContext) -> int:
 
-    kb = kb_from_menu_items([
-        MenuItem.AddRule, MenuItem.DeleteRule, MenuItem.ListRules, MenuItem.ListSubscribedGames, MenuItem.MenuNoAction
-    ], update, context)
+    kb = kb_from_menu_items(
+        [
+            MenuItem.AddRule, MenuItem.DeleteRule, MenuItem.ListRules,
+            MenuItem.ListSubscribedGames, MenuItem.MenuNoAction
+        ],
+        update,
+        context
+    )
 
     msg = localize(MenuItem.MainMenu, update, context)
 
@@ -362,6 +371,16 @@ def info(update: Update, context: CallbackContext) -> None:
 
 
 # noinspection PyUnusedLocal
+def stop(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat_id
+    with EncounterNewsDB(DB_LOCATION) as db:
+        db.stop_user_updates(chat_id)
+    msg = localize(MenuItem.BotStopped, update, context)
+    update.message.reply_text(msg)
+    return None
+
+
+# noinspection PyUnusedLocal
 def help_(update: Update, context: CallbackContext) -> None:
     msg = localize(MenuItem.Help, update, context)
     update.message.reply_text(msg, parse_mode="HTML")
@@ -443,6 +462,8 @@ def main():
     updater.dispatcher.add_handler(CommandHandler("help", help_))
 
     updater.dispatcher.add_handler(CommandHandler("info", info))
+
+    updater.dispatcher.add_handler(CommandHandler("stop", stop))
 
     updater.dispatcher.add_error_handler(error_handler)
 

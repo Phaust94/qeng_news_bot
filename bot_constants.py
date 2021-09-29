@@ -22,6 +22,7 @@ __all__ = [
     "handle_choice",
     "kb_from_menu_items",
     "h", "games_desc_adaptive",
+    "find_user_lang",
 ]
 
 

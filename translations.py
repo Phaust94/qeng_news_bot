@@ -73,6 +73,7 @@ class MenuItem(enum.Enum):
     MainMenu = enum.auto()
     Error = enum.auto()
     Info = enum.auto()
+    BotStopped = enum.auto()
     Help = enum.auto()
     AddRule = enum.auto()
     DeleteRule = enum.auto()
@@ -181,6 +182,14 @@ MENU_LOCALIZATION = {
         Language.Russian: "Это новостной бот Энки\nВерсия",
         Language.English: "This is an Encounter news bot\nVersion",
         Language.Ukrainian: "Це новинний бот мережі ігр Енкаунтер\nВерсія",
+    },
+    MenuItem.BotStopped: {
+        Language.Russian: "Я больше не буду слать вам уведомления. Если вы захотите возобновить обновления - "
+                          "пришлите мне команду /start",
+        Language.English: "I won't send you updates anymore. If you'd like to resume receiving Encounter news - just "
+                          "send me the /start command",
+        Language.Ukrainian: "Я більше не буду надсилати вам сповіщення. Якщо ви захочете відновити оновлення - "
+                          "надішліть мені команду /start",
     },
     MenuItem.Help: {
         Language.Russian: "Прочитать информацию о боте можно "

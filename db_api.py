@@ -201,6 +201,17 @@ class EncounterNewsDB:
                         )
                         """, raise_on_error=False)
 
+        self.query(
+            """
+                CREATE TABLE USER_STOP
+                (
+                USER_ID int,
+                IS_STOPPED int,
+                PRIMARY KEY (USER_ID)
+                )
+                """, raise_on_error=False
+            )
+
         return None
 
     def query(
@@ -526,6 +537,29 @@ class EncounterNewsDB:
         ]
         return games
 
+    def stop_user_updates(self, tg_id: int) -> None:
+        df = pd.DataFrame([{"USER_ID": tg_id, "IS_STOPPED": 1}])
+        try:
+            df.to_sql("USER_STOP", self._db_conn, if_exists="append", index=False)
+        except IntegrityError:
+            upd_query = """
+            UPDATE USER_STOP
+            SET IS_STOPPED = 1
+            WHERE 1=1
+            AND USER_ID = :tg_id
+            """
+            self.query(upd_query, {"tg_id": tg_id}, raise_on_error=False)
+        return None
+
+    def start_user_updates(self, tg_id: int) -> None:
+        upd_query = """
+            DELETE FROM USER_STOP
+            WHERE 1=1
+            AND USER_ID = :tg_id
+        """
+        self.query(upd_query, {"tg_id": tg_id}, raise_on_error=False)
+        return None
+
     def show_games_outer(self, tg_id: int, domain: str) -> typing.List[EncounterGame]:
         if domain == "All":
             domains = self.get_user_domains(tg_id)
@@ -681,9 +715,22 @@ class EncounterNewsDB:
             SELECT *
             FROM users_triggered_rules
             WHERE rn_outer = 1
+        ),
+        users_stopped as (
+            SELECT
+            USER_ID
+            FROM USER_STOP
+            WHERE 1=1
+            AND IS_STOPPED = 1
+        ),
+        one_row_per_user_update_not_stopped as (
+            SELECT *
+            FROM one_row_per_user_update
+            WHERE 1=1
+            AND USER_ID NOT IN (SELECT USER_ID FROM users_stopped)
         )
         SELECT a.*, b.LANGUAGE
-        FROM one_row_per_user_update as a
+        FROM one_row_per_user_update_not_stopped as a
         INNER JOIN USER_LANGUAGE as b
         ON (a.USER_ID = b.USER_ID)
         """
