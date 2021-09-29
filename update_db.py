@@ -21,7 +21,10 @@ from constants import DB_LOCATION
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
 SEND_UPDATES = False
-
+UPDATE_BLOCKLIST = {
+    ('kharkiv.en.cx', 71875),
+    ('kharkiv.en.cx', 72946),
+}
 
 def get_driver(executable_path: str):
     chrome_options = Options()
@@ -42,7 +45,7 @@ def update_db() -> None:
             driver = get_driver(CHROME_DRIVER_PATH)
 
         for upd in updates:
-            if upd.change.domain.pretty_name == 'kharkiv.en.cx' and upd.change.id == 71875:
+            if (upd.change.domain.pretty_name, upd.change.id) in UPDATE_BLOCKLIST:
                 continue
             if not SEND_UPDATES:
                 continue
