@@ -560,6 +560,21 @@ class EncounterNewsDB:
         self.query(upd_query, {"tg_id": tg_id}, raise_on_error=False)
         return None
 
+    def get_updates_on_off(self, tg_id: int) -> bool:
+        query = """
+            SELECT IS_STOPPED
+            FROM USER_STOP
+            WHERE 1=1
+            AND USER_ID = :tg_id
+        """
+        res = self.query(query, {"tg_id": tg_id})
+        if res.empty:
+            updates_on = True
+        else:
+            updates_on = not res.iloc[0]["IS_STOPPED"]
+
+        return updates_on
+
     def show_games_outer(self, tg_id: int, domain: str) -> typing.List[EncounterGame]:
         if domain == "All":
             domains = self.get_user_domains(tg_id)

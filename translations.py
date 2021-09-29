@@ -73,6 +73,8 @@ class MenuItem(enum.Enum):
     MainMenu = enum.auto()
     Error = enum.auto()
     Info = enum.auto()
+    UpdatesOn = enum.auto()
+    UpdatesOff = enum.auto()
     BotStopped = enum.auto()
     Help = enum.auto()
     AddRule = enum.auto()
@@ -179,9 +181,19 @@ MENU_LOCALIZATION = {
         Language.Ukrainian: "Сталась помилка",
     },
     MenuItem.Info: {
-        Language.Russian: "Это новостной бот Энки\nВерсия",
-        Language.English: "This is an Encounter news bot\nVersion",
-        Language.Ukrainian: "Це новинний бот мережі ігр Енкаунтер\nВерсія",
+        Language.Russian: "Это новостной бот Энки\nВерсия {}\nВаш язык - Русский\nОповещения {}",
+        Language.English: "This is an Encounter news bot\nVersion {}\nYour language is English\nUpdates are {}",
+        Language.Ukrainian: "Це новинний бот мережі ігр Енкаунтер\nВерсія {}\nВаша мова - Українська\nСповіщення {}",
+    },
+    MenuItem.UpdatesOn: {
+        Language.Russian: f"включены {chr(0x2705)}",
+        Language.English: f"on {chr(0x2705)}",
+        Language.Ukrainian: f"ввімкені {chr(0x2705)}",
+    },
+    MenuItem.UpdatesOff: {
+        Language.Russian: f"отключены {chr(0x274C)}",
+        Language.English: f"off {chr(0x274C)}",
+        Language.Ukrainian: f"вимкені {chr(0x274C)}",
     },
     MenuItem.BotStopped: {
         Language.Russian: "Я больше не буду слать вам уведомления. Если вы захотите возобновить обновления - "

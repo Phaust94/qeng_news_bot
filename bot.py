@@ -365,7 +365,16 @@ def error_handler(update: Update, context: CallbackContext) -> None:
 # noinspection PyUnusedLocal
 def info(update: Update, context: CallbackContext) -> None:
     msg = localize(MenuItem.Info, update, context)
-    msg = f"{msg} {__version__}"
+    with EncounterNewsDB(DB_LOCATION) as db:
+        updates_on = db.get_updates_on_off(update.message.chat_id)
+
+    st = "UpdatesOn" if updates_on else "UpdatesOff"
+    it = getattr(MenuItem, st)
+    status_txt = localize(it, update, context)
+    msg = msg.format(
+        __version__,
+        status_txt,
+    )
     update.message.reply_text(msg)
     return None
 
