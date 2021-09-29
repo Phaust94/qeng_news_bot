@@ -20,11 +20,12 @@ from constants import DB_LOCATION
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
-SEND_UPDATES = False
+SEND_UPDATES = True
 UPDATE_BLOCKLIST = {
     ('kharkiv.en.cx', 71875),
     ('kharkiv.en.cx', 72946),
 }
+
 
 def get_driver(executable_path: str):
     chrome_options = Options()
