@@ -920,7 +920,7 @@ class Change:
 
             dropped_players = sorted(set(self.old_player_ids).difference(self.new_player_ids))
             dropped_players_urls = [
-                f"<a href='{url_templ_func.url(self.domain, pl)}'>{i + 1}</a>"
+                f"<a href='{url_templ_func.url(self.domain, pl)}'>#{i + 1}</a>"
                 for i, pl in enumerate(dropped_players)
             ]
             dropped_players_urls = f"({', '.join(dropped_players_urls)})" if dropped_players_urls else ''
@@ -935,7 +935,7 @@ class Change:
                 j.format(**v)
                 for j, v in zip(joiners, vals)
             ]
-            res = "\n".join(map(str, interlaced))
+            res = "\n" + "\n".join(map(str, interlaced))
             return res
         else:
             assert change_type is ChangeType.NewForumMessage, "Wrong change type"
