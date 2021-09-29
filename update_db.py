@@ -20,6 +20,8 @@ from constants import DB_LOCATION
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
+SEND_UPDATES = False
+
 
 def get_driver(executable_path: str):
     chrome_options = Options()
@@ -42,6 +44,8 @@ def update_db() -> None:
         for upd in updates:
             if upd.change.domain.pretty_name == 'kharkiv.en.cx' and upd.change.id == 71875:
                 continue
+            if not SEND_UPDATES:
+                continue
 
             upd.sent_ts = datetime.datetime.utcnow()
             # noinspection PyBroadException
@@ -61,7 +65,7 @@ def update_db() -> None:
                 upd.is_delivered = True
             except Exception as e:
                 print(e)
-                upd.is_delivered = None
+                upd.is_delivered = False
 
         db.updates_to_db(updates)
         db.commit_update()
