@@ -20,6 +20,7 @@ from contextlib import contextmanager
 
 import pandas as pd
 import requests
+# noinspection PyProtectedMember
 from bs4 import BeautifulSoup, Tag
 from fake_useragent import UserAgent
 import feedparser
@@ -913,7 +914,7 @@ class Change:
             new_players = sorted(set(self.new_player_ids).difference(self.old_player_ids))
             url_templ_func = RuleType.from_game_format(self.game_format)
             new_players_urls = [
-                f"<a href='{url_templ_func.url(self.domain, pl)}'>{i + 1}</a>"
+                f"<a href='{url_templ_func.url(self.domain, pl)}'>#{i + 1}</a>"
                 for i, pl in enumerate(new_players)
             ]
             new_players_urls = f"({', '.join(new_players_urls)})" if new_players_urls else ''
