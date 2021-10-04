@@ -697,9 +697,9 @@ MENU_LOCALIZATION = {
         Language.Ukrainian: ["Старий опис", "Новий опис"],
     },
     MenuItem.BotStatusReportAllowed: {
-        Language.Russian: "Статус (за последние 24 часа):\n {} сообщений отправлено\n {} сообщений доставлено",
-        Language.English: "Status (in the last 24 hours):\n {} messages sent\n{} messages delivered",
-        Language.Ukrainian: "Статус (за останні 24 години):\n {} повідомлень відправлено\b {} повідомлень доставлено",
+        Language.Russian: "Статус (за последние 24 часа):\n{} сообщений отправлено\n{} сообщений доставлено",
+        Language.English: "Status (in the last 24 hours):\n{} messages sent\n{} messages delivered",
+        Language.Ukrainian: "Статус (за останні 24 години):\n{} повідомлень відправлено\n{} повідомлень доставлено",
     },
     MenuItem.BotStatusReportNotAllowed: {
         Language.Russian: "Вы не имеете доступа к этой функции",
