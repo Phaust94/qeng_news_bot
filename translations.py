@@ -162,6 +162,8 @@ class MenuItem(enum.Enum):
     PassingSequenceDynamicallyRandom = enum.auto()
 
     DescriptionBeforeAfter = enum.auto()
+    BotStatusReportAllowed = enum.auto()
+    BotStatusReportNotAllowed = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -693,5 +695,15 @@ MENU_LOCALIZATION = {
         Language.Russian: ["Старое описание", "Новое описание"],
         Language.English: ["Old description", "New description"],
         Language.Ukrainian: ["Старий опис", "Новий опис"],
+    },
+    MenuItem.BotStatusReportAllowed: {
+        Language.Russian: "Статус:\nЗа последние 24 часа отправлено {} сообщений, из них {} успешно",
+        Language.English: "Status:\nSent {} messages in the last 24 hours, out of those {} delivered successfully",
+        Language.Ukrainian: "Статус:\nЗа останні 24 години відправлено {} повідомлень, із них {} успішно",
+    },
+    MenuItem.BotStatusReportNotAllowed: {
+        Language.Russian: "Вы не имеете доступа к этой функции",
+        Language.English: "You don't have access to this functionality",
+        Language.Ukrainian: "Ви не маєте доступу до цієї функції",
     },
 }

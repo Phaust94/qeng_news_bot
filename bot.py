@@ -11,6 +11,8 @@ import typing
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
 
+import constants
+
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path:
     sys.path.append(cur_dir)
@@ -390,6 +392,20 @@ def stop(update: Update, context: CallbackContext) -> None:
 
 
 # noinspection PyUnusedLocal
+def status_check(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat_id
+    if chat_id != constants.ADMIN_ID:
+        msg = localize(MenuItem.BotStatusReportNotAllowed, update, context)
+    else:
+        with EncounterNewsDB(DB_LOCATION) as db:
+            res = db.count_updates()
+        msg = localize(MenuItem.BotStatusReportAllowed, update, context)
+        msg = msg.format(*res)
+    update.message.reply_text(msg)
+    return None
+
+
+# noinspection PyUnusedLocal
 def help_(update: Update, context: CallbackContext) -> None:
     msg = localize(MenuItem.Help, update, context)
     update.message.reply_text(msg, parse_mode="HTML")
@@ -473,6 +489,8 @@ def main():
     updater.dispatcher.add_handler(CommandHandler("info", info))
 
     updater.dispatcher.add_handler(CommandHandler("stop", stop))
+
+    updater.dispatcher.add_handler(CommandHandler("status", status_check))
 
     updater.dispatcher.add_error_handler(error_handler)
 

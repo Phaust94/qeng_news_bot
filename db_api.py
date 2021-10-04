@@ -551,6 +551,21 @@ class EncounterNewsDB:
             self.query(upd_query, {"tg_id": tg_id}, raise_on_error=False)
         return None
 
+    def count_updates(self) -> typing.Tuple[int, int]:
+        cnt_query = """
+            SELECT 
+            COUNT(*) as N_UPDATES_DELIVERED,
+            ifnull(SUM(IS_DELIVERED), 0) as N_UPDATES_DELIVERED_SUCCESSFULLY
+            FROM UPDATE_STATUS
+            WHERE 1=1
+            AND ((julianday(CURRENT_TIMESTAMP) - julianday(DELIVERED)) * 86400.0) < 24 * 60 * 60
+        """
+        res_df = self.query(cnt_query)
+        res_s: pd.Series = res_df.iloc[0]
+        res_di = res_s.to_dict()
+        res = (res_di["N_UPDATES_DELIVERED"], res_di["N_UPDATES_DELIVERED_SUCCESSFULLY"])
+        return res
+
     def start_user_updates(self, tg_id: int) -> None:
         upd_query = """
             DELETE FROM USER_STOP

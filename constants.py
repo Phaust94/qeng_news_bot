@@ -17,6 +17,7 @@ __all__ = [
     "MAX_USER_RULES_ALLOWED",
     "MIN_HOURS_GAME_CHANGE_NOTIFY",
     "PERCENTAGE_CHANGE_TO_TRIGGER",
+    "ADMIN_ID",
 ]
 
 DB_LOCATION = os.path.join(__file__, "..", "data", "bot_db.sqlite")
@@ -36,6 +37,7 @@ RULE_ID_LENGTH = 10
 DEFAULT_DAYS_IN_FUTURE = 14
 MAX_USER_RULES_ALLOWED = 10
 MIN_HOURS_GAME_CHANGE_NOTIFY = 2.5
+ADMIN_ID = 476001386
 
 
 class InvalidDomainError(ValueError):
