@@ -711,7 +711,7 @@ MENU_LOCALIZATION = {
     MenuItem.DontUnderstand: {
         Language.Russian: "Я не понял вас. Если вы использовали команду из меню - то, возможно, меня перезапустили, "
                           "и я потерял нить общения. В этом случае попробуйте вызвать /menu ещё раз.",
-        Language.English: "I didn;t understand you. If you just used a menu command - then maybe I got rebooted and "
+        Language.English: "I didn't understand you. If you just used a menu command - then maybe I got rebooted and "
                           "lost the conversation thread. In this case, please, try calling /menu again.",
         Language.Ukrainian: "Я вас не зрозумів. Якщо ви використовували команду з меню - то, можливо, "
                             "мене перезапустили, і я забув, про що ми спілкувались. В цьому випадку спробуйте "
