@@ -165,6 +165,8 @@ class MenuItem(enum.Enum):
     BotStatusReportAllowed = enum.auto()
     BotStatusReportNotAllowed = enum.auto()
 
+    DontUnderstand = enum.auto()
+
 
 MENU_LOCALIZATION = {
     MenuItem.LangSet: {
@@ -706,4 +708,13 @@ MENU_LOCALIZATION = {
         Language.English: "You don't have access to this functionality",
         Language.Ukrainian: "Ви не маєте доступу до цієї функції",
     },
+    MenuItem.DontUnderstand: {
+        Language.Russian: "Я не понял вас. Если вы использовали команду из меню - то, возможно, меня перезапустили, "
+                          "и я потерял нить общения. В этом случае попробуйте вызвать /menu ещё раз.",
+        Language.English: "I didn;t understand you. If you just used a menu command - then maybe I got rebooted and "
+                          "lost the conversation thread. In this case, please, try calling /menu again.",
+        Language.Ukrainian: "Я вас не зрозумів. Якщо ви використовували команду з меню - то, можливо, "
+                            "мене перезапустили, і я забув, про що ми спілкувались. В цьому випадку спробуйте "
+                            "викликати /menu ще раз.",
+    }
 }
