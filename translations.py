@@ -261,7 +261,8 @@ MENU_LOCALIZATION = {
         Language.Ukrainian: "Невірний вибір! Спробуйте ще.",
     },
     MenuItem.MenuEnd: {
-        Language.Russian: "Выбор настроек окончен. Если хотите совершить настройку ещё раз - вызовите комманду /menu",
+        Language.Russian: "Выбор настроек окончен. Если хотите совершить настройку ещё раз - вызовите комманду /menu. "
+                          "Если вы только что вызывали какую-то из / команд - попробуйте повторить",
         Language.English: "Done changing settings. If you wish to chanage settings once again - just call /menu",
         Language.Ukrainian: "Налаштування завершено. Якщо захочете повернутись до процесу налаштування -"
                             " викличте команду /menu",
@@ -301,17 +302,17 @@ MENU_LOCALIZATION = {
         Пришлите мне ссылку на домен. Например, http://kharkiv.en.cx/.
         Если в домене разный список игр для разных языков - то пришлите ссылку с указанием языка домена. 
         Например, http://kharkiv.en.cx/?lang=ru.
-        Поддерживаются домены *.en.cx, *.quest.ua, *.qeng.org""",
+        Поддерживаются домены *.qeng.org, *.en.cx, *.quest.ua""",
         Language.English: """
         Send me domain URL. E.g. http://kharkiv.en.cx/.
         If a domain has different games list for different languages - 
         then specify the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=ru
-        Domains supported are *.en.cx, *.quest.ua, *.qeng.org""",
+        Domains supported are *.qeng.org, *.en.cx, *.quest.ua""",
         Language.Ukrainian: """
         Надішліть мені посилання на домен. Наприклад, http://kharkiv.en.cx/.
         Якщо в домені різний список ігр для різних мов - то надішліть посилання із вказанням мови домену.
         Наприклад, http://kharkiv.en.cx/?lang=ru.
-        Домени, що підтримуються: *.en.cx, *.quest.ua, *.qeng.org""",
+        Домени, що підтримуються: *.qeng.org, *.en.cx, *.quest.ua""",
     },
     MenuItem.RoughRuleDescription: {
         Language.Russian: """

@@ -50,6 +50,18 @@ class EncounterDomain(Domain):
         res = self.full_url_template.format(path="export/Syndication/ForumRss.aspx", args="")
         return res
 
+    @property
+    def game_details_url(self) -> typing.Tuple[str, str]:
+        return "GameDetails.aspx", "&gid={id}"
+
+    @property
+    def team_details_url(self) -> typing.Tuple[str, str]:
+        return "Teams/TeamDetails.aspx", "&tid={id}"
+
+    @property
+    def user_details_url(self) -> typing.Tuple[str, str]:
+        return "UserDetails.aspx", "&uid={id}"
+
     def get_games(self) -> typing.List[BaseGame]:
         ua = USER_AGENTS_FACTORY.random
         hdrs = {"User-Agent": ua}

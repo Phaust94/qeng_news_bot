@@ -419,13 +419,29 @@ def dont_understand(update: Update, context: CallbackContext) -> None:
     return None
 
 
-h = functools.partial(h_full, cancel_func=settings_prompt)
+DEFAULT_COMMAND_HANDLERS = [
+    CommandHandler("help", help_),
+    CommandHandler("info", info),
+    CommandHandler("stop", stop),
+    CommandHandler("status", status_check),
+]
+
+h = functools.partial(
+    h_full,
+    cancel_func=settings_prompt,
+    menu_func=settings_prompt,
+    default_command_handlers=DEFAULT_COMMAND_HANDLERS,
+)
 
 STATE_TO_HANDLERS = {
     State.SetLanguage: h(prompt_language),
     State.SetLanguageGetLang: h(store_user_lang),
     State.InMainMenu: h(settings_prompt),
-    State.SettingsChoice: h(settings_prompt),
+    State.SettingsChoice: h_full(
+        settings_choice_done,
+        cancel_func=settings_end, menu_func=settings_prompt,
+        default_command_handlers=DEFAULT_COMMAND_HANDLERS,
+    ),
     State.RuleTypeChoice: h(rule_type_choice_done),
     State.AddDomainRule: h(add_domain_get_domain),
     State.WaitRuleToDelete: h(wait_rule_to_delete),
@@ -491,13 +507,8 @@ def main():
 
     updater.dispatcher.add_handler(conv_handler)
 
-    updater.dispatcher.add_handler(CommandHandler("help", help_))
-
-    updater.dispatcher.add_handler(CommandHandler("info", info))
-
-    updater.dispatcher.add_handler(CommandHandler("stop", stop))
-
-    updater.dispatcher.add_handler(CommandHandler("status", status_check))
+    for c in DEFAULT_COMMAND_HANDLERS:
+        updater.dispatcher.add_handler(c)
 
     updater.dispatcher.add_handler(MessageHandler(Filters.all, dont_understand))
 

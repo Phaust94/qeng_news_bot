@@ -4,7 +4,9 @@ DB Updater process
 import datetime
 import os
 import sys
+import time
 
+import typing
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -13,10 +15,12 @@ if cur_dir not in sys.path:
     sys.path.append(cur_dir)
 
 from telegram.ext import Updater
+from telegram import Bot
 
 from db_api import EncounterNewsDB
-from secrets import API_KEY
-from meta_constants import DB_LOCATION
+from secrets import API_KEY, SEND_ONLY_TO_ADMIN
+from meta_constants import DB_LOCATION, ADMIN_ID
+from entities import Update
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
@@ -35,6 +39,37 @@ def get_driver(executable_path: str):
     return driver
 
 
+def send_update(upd: Update, bot: Bot, driver: typing.Optional[webdriver.Chrome]) -> typing.Optional[Update]:
+    if (upd.change.domain.pretty_name, upd.change.id) in UPDATE_BLOCKLIST:
+        return None
+    if not SEND_UPDATES:
+        return None
+    if SEND_ONLY_TO_ADMIN and upd.user_id != ADMIN_ID:
+        return None
+
+    upd.sent_ts = datetime.datetime.utcnow()
+    # noinspection PyBroadException
+    try:
+        bot.send_message(
+            upd.user_id, upd.msg, parse_mode="HTML",
+        )
+        if upd.has_diffpic:
+            with upd.diffpic(driver) as dp:
+                # noinspection PyBroadException
+                try:
+                    bot.send_photo(upd.user_id, dp)
+                except Exception:
+                    with open(dp.name, "rb") as pic:
+                        bot.send_document(upd.user_id, pic)
+
+        upd.is_delivered = True
+    except Exception as e:
+        print("ERROR", upd, e, sep="\n")
+        upd.is_delivered = False
+
+    return upd
+
+
 def update_db() -> None:
     updater = Updater(API_KEY, workers=1)
     bot = updater.bot
@@ -46,30 +81,9 @@ def update_db() -> None:
             driver = get_driver(CHROME_DRIVER_PATH)
 
         for upd in updates:
-            if (upd.change.domain.pretty_name, upd.change.id) in UPDATE_BLOCKLIST:
-                continue
-            if not SEND_UPDATES:
-                continue
-
-            upd.sent_ts = datetime.datetime.utcnow()
-            # noinspection PyBroadException
-            try:
-                bot.send_message(
-                    upd.user_id, upd.msg, parse_mode="HTML",
-                )
-                if upd.has_diffpic:
-                    with upd.diffpic(driver) as dp:
-                        # noinspection PyBroadException
-                        try:
-                            bot.send_photo(upd.user_id, dp)
-                        except Exception:
-                            with open(dp.name, "rb") as pic:
-                                bot.send_document(upd.user_id, pic)
-
-                upd.is_delivered = True
-            except Exception as e:
-                print("ERROR", upd, e, sep="\n")
-                upd.is_delivered = False
+            upd_sent = send_update(upd, bot, driver)
+            if upd_sent is not None:
+                time.sleep(2 / 30)
 
         db.updates_to_db(updates)
         db.commit_update()

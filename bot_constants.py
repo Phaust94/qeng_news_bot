@@ -136,14 +136,26 @@ def kb_from_menu_items(
 
 def h(
         func: typing.Callable[[Update, CallbackContext], int],
-        cancel_func: typing.Callable[[Update, CallbackContext], int],
+        cancel_func: typing.Optional[typing.Callable[[Update, CallbackContext], int]],
+        menu_func: typing.Optional[typing.Callable[[Update, CallbackContext], int]],
+        default_command_handlers: typing.List[
+            CommandHandler
+        ] = None,
 ) -> typing.List[
     typing.Union[MessageHandler, CommandHandler]
 ]:
     res = [
-            MessageHandler(Filters.text & ~Filters.command, callback=func),
-            CommandHandler("cancel", callback=cancel_func)
+        MessageHandler(Filters.text & ~Filters.command, callback=func),
     ]
+    if menu_func is not None:
+        res.append(CommandHandler("menu", callback=menu_func))
+
+    if cancel_func is not None:
+        res.append(CommandHandler("cancel", callback=cancel_func))
+
+    default_command_handlers = default_command_handlers or []
+    res.extend(default_command_handlers)
+
     return res
 
 

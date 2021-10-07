@@ -123,6 +123,9 @@ class Change:
         init_dict["authors"] = BaseGame.authors_list_from_str(init_dict["authors"])
         init_dict["authors_ids"] = BaseGame.authors_list_from_str(init_dict["authors_ids"], True)
 
+        if pd.isna(init_dict["forum_thread_id"]):
+            init_dict["forum_thread_id"] = None
+
         if init_dict["forum_thread_id"] is not None:
             init_dict["forum_thread_id"] = int(init_dict["forum_thread_id"])
 
@@ -217,16 +220,19 @@ class Change:
     def _to_str_parts(self, language: Language) -> typing.List[str]:
         update_word = MENU_LOCALIZATION[MenuItem.UpdateText][language]
         forum_word = MENU_LOCALIZATION[MenuItem.ForumText][language]
+        game_cls = self.domain.upper_level_domain.game_class
         # noinspection PyProtectedMember
-        full_url = BaseGame._game_details_full_url(self.domain, self.id)
-        # noinspection PyProtectedMember
-        forum_url = BaseGame._forum_url(self.domain, self.forum_thread_id)
+        full_url = game_cls._game_details_full_url(self.domain, self.id)
         prefix_global_pts = [
             update_word,
             f"<b>{self.new_name}</b>",
             f"(id <a href='{full_url}' target='_blank'>{int(self.id)}</a>)",
-            f"[<a href='{forum_url}' target='_blank'>{forum_word}</a>]"
         ]
+        if self.forum_thread_id is not None:
+            # noinspection PyProtectedMember
+            forum_url = game_cls._forum_url(self.domain, self.forum_thread_id)
+            prefix_global_pts.append(f"[<a href='{forum_url}' target='_blank'>{forum_word}</a>]")
+
         prefix_global = " ".join(prefix_global_pts)
 
         res = [prefix_global]

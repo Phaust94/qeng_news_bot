@@ -20,10 +20,21 @@ __all__ = [
 
 
 class RuleType(enum.Enum):
-    Game = ("GameDetails.aspx", "gid={id}")
-    Team = ("Teams/TeamDetails.aspx", "tid={id}")
-    Player = ("UserDetails.aspx", "uid={id}")
-    Author = ("UserDetails.aspx", "uid={id}")
+    Game = enum.auto()
+    Team = enum.auto()
+    Player = enum.auto()
+    Author = enum.auto()
+
+    def url_path(self, domain: Domain) -> typing.Tuple[str, str]:
+        cls = self.__class__
+        di = {
+           cls.Game: domain.game_details_url,
+           cls.Team: domain.team_details_url,
+           cls.Player: domain.user_details_url,
+           cls.Author: domain.user_details_url,
+        }
+        res = di[self]
+        return res
 
     @classmethod
     def from_attr(cls, attr: str) -> RuleType:
@@ -34,10 +45,11 @@ class RuleType(enum.Enum):
         return inst
 
     def url(self, domain: Domain, id_: int) -> str:
-        args = self.value[1].format(id=id_)
+        url_path = self.url_path(domain)
+        args = url_path[1].format(id=id_)
         templ = domain.full_url_template.format(
-            path=self.value[0],
-            args=f"&{args}"
+            path=url_path[0],
+            args=args,
         )
         return templ
 

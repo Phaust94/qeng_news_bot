@@ -97,6 +97,18 @@ class Domain(abc.ABC):
     def __str__(self) -> str:
         return self.full_url
 
+    @property
+    def game_details_url(self) -> typing.Tuple[str, str]:
+        raise NotImplementedError()
+
+    @property
+    def team_details_url(self) -> typing.Tuple[str, str]:
+        raise NotImplementedError()
+
+    @property
+    def user_details_url(self) -> typing.Tuple[str, str]:
+        raise NotImplementedError()
+
 
 if __name__ == '__main__':
     for dom_ in [
