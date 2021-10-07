@@ -16,7 +16,7 @@ from telegram.ext import Updater
 
 from db_api import EncounterNewsDB
 from secrets import API_KEY
-from constants import DB_LOCATION
+from meta_constants import DB_LOCATION
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 

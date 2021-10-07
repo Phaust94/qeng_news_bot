@@ -7,7 +7,7 @@ from __future__ import annotations
 import enum
 import typing
 
-from constants import DEFAULT_DAYS_IN_FUTURE, MAX_USER_RULES_ALLOWED
+from meta_constants import DEFAULT_DAYS_IN_FUTURE, MAX_USER_RULES_ALLOWED
 
 __all__ = [
     "MenuItem", "MENU_LOCALIZATION",
@@ -299,28 +299,31 @@ MENU_LOCALIZATION = {
     MenuItem.DomainPrompt: {
         Language.Russian: """
         Пришлите мне ссылку на домен. Например, http://kharkiv.en.cx/.
-         Если в домене разный список игр для разных языков - то пришлите ссылку с указанием языка домена. 
-        Например, http://kharkiv.en.cx/?lang=ru""",
+        Если в домене разный список игр для разных языков - то пришлите ссылку с указанием языка домена. 
+        Например, http://kharkiv.en.cx/?lang=ru.
+        Поддерживаются домены *.en.cx, *.quest.ua, *.qeng.org""",
         Language.English: """
         Send me domain URL. E.g. http://kharkiv.en.cx/.
-         If a domain has different games list for different languages - then specify 
-        the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=ru""",
+        If a domain has different games list for different languages - 
+        then specify the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=ru
+        Domains supported are *.en.cx, *.quest.ua, *.qeng.org""",
         Language.Ukrainian: """
         Надішліть мені посилання на домен. Наприклад, http://kharkiv.en.cx/.
-         Якщо в домені різний список ігр для різних мов - то надішліть посилання із вказанням мови домену.
-         Наприклад, http://kharkiv.en.cx/?lang=ru""",
+        Якщо в домені різний список ігр для різних мов - то надішліть посилання із вказанням мови домену.
+        Наприклад, http://kharkiv.en.cx/?lang=ru.
+        Домени, що підтримуються: *.en.cx, *.quest.ua, *.qeng.org""",
     },
     MenuItem.RoughRuleDescription: {
         Language.Russian: """
         Я буду присылать вам только важные новости: перенос игры или большое изменение в описании. 
-        Мелкие изменения я отслеживаю только в командных / индивидуальных / игровых правилах.""",
+         Мелкие изменения я отслеживаю только в командных / индивидуальных / игровых правилах.""",
         Language.English: """
         I will send you only important updates: when game dates changed or if
          there is a major change in a game description. Minor changes are only tracked
          under team / individual / game rules.""",
         Language.Ukrainian: """
         Я буду надсилати вам тільки важливі новини: про перенесення гри чи дійсно великі зміни в описі гри.
-        Дрібні зміни я відстежую тільки в командних / індивідуальних / ігрових правилах."""
+         Дрібні зміни я відстежую тільки в командних / індивідуальних / ігрових правилах."""
     },
 
     MenuItem.RuleAdded: {

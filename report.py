@@ -13,7 +13,7 @@ from telegram.ext import Updater
 
 from db_api import EncounterNewsDB
 from secrets import API_KEY
-from constants import DB_LOCATION, ADMIN_ID
+from meta_constants import DB_LOCATION, ADMIN_ID
 from bot_constants import MENU_LOCALIZATION, MenuItem
 from translations import Language
 

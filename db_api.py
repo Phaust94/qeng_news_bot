@@ -13,8 +13,9 @@ from sqlite3 import IntegrityError
 
 import pandas as pd
 
-from meta import Domain, EncounterGame, Rule, GameFormat, Language, Update
-from constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
+from entities import Domain, BaseGame, Rule, GameFormat, Update
+from translations import Language
+from meta_constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
     InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS, MIN_HOURS_GAME_CHANGE_NOTIFY
 
 __all__ = [
@@ -362,7 +363,7 @@ class EncounterNewsDB:
 
     def game_to_db(
             self,
-            game: EncounterGame,
+            game: BaseGame,
             table_name: str = "DOMAIN_GAMES",
             if_exists_action: str = 'append',
     ) -> bool:
@@ -381,7 +382,7 @@ class EncounterNewsDB:
 
     def games_to_db(
             self,
-            games: typing.List[EncounterGame],
+            games: typing.List[BaseGame],
             table_name: str = "DOMAIN_GAMES",
             if_exists_action: str = 'append',
     ) -> bool:
@@ -400,7 +401,7 @@ class EncounterNewsDB:
 
         return res
 
-    def show_games(self, domain: Domain) -> typing.List[EncounterGame]:
+    def show_games(self, domain: Domain) -> typing.List[BaseGame]:
         res = self.query(
             """
             SELECT * 
@@ -412,7 +413,7 @@ class EncounterNewsDB:
         )
 
         games = [
-            EncounterGame.from_json(row)
+            BaseGame.from_json(row)
             for _, row in res.iterrows()
         ]
         return games
@@ -442,7 +443,7 @@ class EncounterNewsDB:
 
         return lang
 
-    def show_games_multiple_domains(self, domains: typing.List[Domain]) -> typing.List[EncounterGame]:
+    def show_games_multiple_domains(self, domains: typing.List[Domain]) -> typing.List[BaseGame]:
         domains_tuple = tuple(domain.full_url for domain in domains)
         res = self.query(
             f"""
@@ -454,12 +455,12 @@ class EncounterNewsDB:
         )
 
         games = [
-            EncounterGame.from_json(row)
+            BaseGame.from_json(row)
             for _, row in res.iterrows()
         ]
         return games
 
-    def get_all_user_games(self, tg_id: int, n_days_in_future: int = None) -> typing.List[EncounterGame]:
+    def get_all_user_games(self, tg_id: int, n_days_in_future: int = None) -> typing.List[BaseGame]:
         query = f"""
         with user_rules as (
             SELECT
@@ -532,7 +533,7 @@ class EncounterNewsDB:
             }
         )
         games = [
-            EncounterGame.from_json(row)
+            BaseGame.from_json(row)
             for _, row in res.iterrows()
         ]
         return games
@@ -590,7 +591,7 @@ class EncounterNewsDB:
 
         return updates_on
 
-    def show_games_outer(self, tg_id: int, domain: str) -> typing.List[EncounterGame]:
+    def show_games_outer(self, tg_id: int, domain: str) -> typing.List[BaseGame]:
         if domain == "All":
             domains = self.get_user_domains(tg_id)
             domains_instances = [
@@ -606,7 +607,7 @@ class EncounterNewsDB:
 
     def games_to_temp_table(
             self,
-            games: typing.List[EncounterGame],
+            games: typing.List[BaseGame],
     ) -> None:
         self.games_to_db(games, "DOMAIN_GAMES_TEMP", "replace")
         return None
@@ -928,7 +929,7 @@ class EncounterNewsDB:
 
 if __name__ == '__main__':
 
-    from constants import DB_LOCATION
+    from meta_constants import DB_LOCATION
     with EncounterNewsDB(DB_LOCATION) as db_:
         d_ = Domain("kharkiv")
         db_.get_updates(domains_due_override=[d_])

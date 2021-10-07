@@ -11,7 +11,7 @@ import typing
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
 
-import constants
+import meta_constants
 
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path:
@@ -20,11 +20,11 @@ if cur_dir not in sys.path:
 from secrets import API_KEY
 from version import __version__
 from db_api import EncounterNewsDB
-from constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
+from meta_constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
     GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError, DEFAULT_DAYS_IN_FUTURE
-from meta import Language
+from translations import Language
 from bot_constants import State, MENU_LOCALIZATION, MenuItem, localize, handle_choice,\
-    kb_from_menu_items, localize_dedent, find_user_lang, games_desc_adaptive
+    kb_from_menu_items, localize_dedent, find_user_lang, games_desc_adaptive, localize_dedent_no_newline_replacing
 from bot_constants import h as h_full
 
 
@@ -182,7 +182,7 @@ def settings_end(update: Update, context: CallbackContext) -> int:
 def add_domain_rule(update: Update, context: CallbackContext) -> int:
     desc = localize_dedent(MenuItem.RoughRuleDescription, update, context)
     update.message.reply_text(desc, reply_markup=ReplyKeyboardRemove())
-    msg = localize_dedent(MenuItem.DomainPrompt, update, context)
+    msg = localize_dedent_no_newline_replacing(MenuItem.DomainPrompt, update, context)
     update.message.reply_text(msg, disable_web_page_preview=True)
     return State.AddDomainRule
 
@@ -270,7 +270,7 @@ def add_granular_rule_get_domain(
 ) -> int:
     domain = update.message.text
     if domain == localize(MenuItem.AnotherDomain, update, context):
-        msg = localize_dedent(MenuItem.DomainPrompt, update, context)
+        msg = localize_dedent_no_newline_replacing(MenuItem.DomainPrompt, update, context)
         update.message.reply_text(msg, disable_web_page_preview=True, reply_markup=ReplyKeyboardRemove())
         return wait_state
     else:
@@ -394,7 +394,7 @@ def stop(update: Update, context: CallbackContext) -> None:
 # noinspection PyUnusedLocal
 def status_check(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
-    if chat_id != constants.ADMIN_ID:
+    if chat_id != meta_constants.ADMIN_ID:
         msg = localize(MenuItem.BotStatusReportNotAllowed, update, context)
     else:
         with EncounterNewsDB(DB_LOCATION) as db:
@@ -425,7 +425,7 @@ STATE_TO_HANDLERS = {
     State.SetLanguage: h(prompt_language),
     State.SetLanguageGetLang: h(store_user_lang),
     State.InMainMenu: h(settings_prompt),
-    State.SettingsChoice: h(settings_choice_done),
+    State.SettingsChoice: h(settings_prompt),
     State.RuleTypeChoice: h(rule_type_choice_done),
     State.AddDomainRule: h(add_domain_get_domain),
     State.WaitRuleToDelete: h(wait_rule_to_delete),

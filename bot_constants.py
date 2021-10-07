@@ -2,6 +2,8 @@
 Bot-related constants
 """
 
+from __future__ import annotations
+
 import enum
 import typing
 import textwrap
@@ -9,11 +11,14 @@ import textwrap
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, MessageHandler, Filters
 
-from meta import Language, EncounterGame
-from constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
+from translations import Language
+from meta_constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
     MAX_MESSAGE_LENGTH_TELEGRAM
 from db_api import EncounterNewsDB
 from translations import MENU_LOCALIZATION, MenuItem
+
+if typing.TYPE_CHECKING:
+    from entities import BaseGame
 
 __all__ = [
     "State", "MenuItem",
@@ -23,6 +28,7 @@ __all__ = [
     "kb_from_menu_items",
     "h", "games_desc_adaptive",
     "find_user_lang",
+    "localize_dedent_no_newline_replacing",
 ]
 
 
@@ -74,6 +80,12 @@ def localize(item: MenuItem, update: Update, context: CallbackContext) -> str:
 def localize_dedent(item: MenuItem, update: Update, context: CallbackContext):
     msg = localize(item, update, context)
     msg = textwrap.dedent(msg).replace("\n", "")
+    return msg
+
+
+def localize_dedent_no_newline_replacing(item: MenuItem, update: Update, context: CallbackContext):
+    msg = localize(item, update, context)
+    msg = textwrap.dedent(msg)
     return msg
 
 
@@ -135,7 +147,7 @@ def h(
     return res
 
 
-def split_game_desc(game: EncounterGame, language: Language):
+def split_game_desc(game: BaseGame, language: Language):
     desc = game.to_str(language)
     pts = []
     for x in range(0, len(desc), MAX_MESSAGE_LENGTH_TELEGRAM):
@@ -145,7 +157,7 @@ def split_game_desc(game: EncounterGame, language: Language):
 
 
 def games_desc_adaptive(
-        games: typing.List[EncounterGame],
+        games: typing.List[BaseGame],
         language: Language,
 ) -> typing.List[str]:
     games_chunks = []
