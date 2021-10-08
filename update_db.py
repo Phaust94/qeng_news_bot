@@ -5,6 +5,7 @@ import datetime
 import os
 import sys
 import time
+import re
 
 import typing
 from selenium import webdriver
@@ -26,9 +27,20 @@ CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
 SEND_UPDATES = True
 UPDATE_BLOCKLIST = {
-    ('kharkiv.en.cx', 71875),       # Fucking "Реальная Виртуальность" spams updates as hell
-    # ('kharkiv.en.cx', 72946),
+    (r'kharkiv\.en\.cx', 71875),       # Fucking "Реальная Виртуальность" spams updates as hell
+    (r"qeng\.org", 80),
+    (r"qeng\.org", 3115),
+    (r"qeng\.org", 3493),
+    (r"qeng\.org", 1279),
+    (r"qeng\.org", 431),             # Training games QENG
 }
+
+
+def is_blocked(update: Update) -> bool:
+    for dom, gid in UPDATE_BLOCKLIST:
+        if re.findall(dom, update.change.domain.pretty_name) and update.change.id == gid:
+            return True
+    return False
 
 
 def get_driver(executable_path: str):
@@ -40,7 +52,7 @@ def get_driver(executable_path: str):
 
 
 def send_update(upd: Update, bot: Bot, driver: typing.Optional[webdriver.Chrome]) -> typing.Optional[Update]:
-    if (upd.change.domain.pretty_name, upd.change.id) in UPDATE_BLOCKLIST:
+    if is_blocked(upd):
         return None
     if not SEND_UPDATES:
         return None
