@@ -4,6 +4,7 @@ DB API for the bot
 
 from __future__ import annotations
 
+import time
 from sqlite3 import connect, Connection
 from dataclasses import dataclass, field
 import typing
@@ -820,6 +821,7 @@ class EncounterNewsDB:
             for domain in domains_due:
                 new_games_pt = domain.get_games()
                 new_games.extend(new_games_pt)
+                time.sleep(1)
 
             self.games_to_temp_table(new_games)
             users_to_notify = self.users_to_notify()
