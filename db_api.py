@@ -62,6 +62,7 @@ class EncounterNewsDB:
                 TEAM_ID int,
                 GAME_ID int,
                 AUTHOR_ID int,
+                GAME_IGNORE_ID int,
                 PRIMARY KEY (RULE_ID)
                 )
                 """, raise_on_error=False)
@@ -136,7 +137,8 @@ class EncounterNewsDB:
                 SELECT
                 *, 
                 CASE 
-                WHEN PLAYER_ID IS NULL AND TEAM_ID IS NULL AND GAME_ID IS NULL AND AUTHOR_ID IS NULL
+                WHEN PLAYER_ID IS NULL AND TEAM_ID IS NULL AND GAME_ID IS NULL AND AUTHOR_ID IS NULL 
+                AND GAME_IGNORE_ID IS NULL
                  THEN 1
                  ELSE 0 
                 END as IS_COARSE_RULE
@@ -468,7 +470,8 @@ class EncounterNewsDB:
             SELECT
             RULE_ID
             FROM USER_SUBSCRIPTION
-            WHERE USER_ID = :user_id
+            WHERE 1=1
+            AND USER_ID = :user_id
         ),
         rules_desc as (
             SELECT 
@@ -511,9 +514,29 @@ class EncounterNewsDB:
                     )
                 )
             )
+        ),
+        user_ignore_rules as (
+            SELECT 
+            *
+            FROM rules_desc
+            WHERE 1=1
+            AND GAME_IGNORE_ID IS NOT NULL
+        ),
+        games_matched_not_ignored as (
+            SELECT 
+            gm.*
+            FROM games_matched as gm
+            LEFT JOIN user_ignore_rules as gi
+            ON (
+                1=1
+                AND gm.DOMAIN = gi.DOMAIN
+                AND gm.ID = gi.GAME_IGNORE_ID
+            )
+            WHERE 1=1
+            AND gi.DOMAIN IS NULL
         )
         SELECT *
-        FROM games_matched
+        FROM games_matched_not_ignored
         WHERE 1=1
         AND rn = 1
         AND START_TIME <= :end_date
@@ -761,9 +784,37 @@ class EncounterNewsDB:
             FROM one_row_per_user_update
             WHERE 1=1
             AND USER_ID NOT IN (SELECT USER_ID FROM users_stopped)
+        ),
+        ignore_rules as (
+            SELECT *
+            FROM RULE_DESCRIPTION_V
+            WHERE 1=1
+            AND GAME_IGNORE_ID IS NOT NULL
+        ),
+        users_with_ignore_rules as (
+            SELECT
+            us.USER_ID,
+            ir.DOMAIN,
+            ir.GAME_IGNORE_ID as ID
+            FROM USER_SUBSCRIPTION as us
+            INNER JOIN ignore_rules as ir
+            ON (us.RULE_ID = ir.RULE_ID)
+        ),
+        updates_filtered as (
+            SELECT
+            ons.*
+            FROM one_row_per_user_update_not_stopped as ons
+            LEFT JOIN users_with_ignore_rules as iu
+            ON (
+                1=1
+                AND ons.USER_ID = iu.USER_ID
+                AND ons.DOMAIN = iu.DOMAIN
+                AND ons.ID = iu.ID
+            )
+            WHERE iu.USER_ID IS NULL
         )
         SELECT a.*, b.LANGUAGE
-        FROM one_row_per_user_update_not_stopped as a
+        FROM updates_filtered as a
         INNER JOIN USER_LANGUAGE as b
         ON (a.USER_ID = b.USER_ID)
         """

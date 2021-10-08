@@ -105,7 +105,7 @@ def add_rule_promt(update: Update, context: CallbackContext) -> int:
 
     kb = kb_from_menu_items([
         MenuItem.DomainRule, MenuItem.TeamRule, MenuItem.PlayerRule, MenuItem.GameRule,
-        MenuItem.AuthorRule,
+        MenuItem.AuthorRule, MenuItem.GameIgnoreRule,
     ], update, context)
 
     msg = localize(MenuItem.RuleTypeChoiceMenu, update, context)
@@ -246,8 +246,9 @@ def add_granular_rule(
         update: Update,
         context: CallbackContext,
         wait_domain_state: State,
+        generic_rule_description: MenuItem = MenuItem.GranularRuleDescription,
 ) -> int:
-    desc = localize_dedent(MenuItem.GranularRuleDescription, update, context)
+    desc = localize_dedent(generic_rule_description, update, context)
     update.message.reply_text(desc)
     msg = localize(MenuItem.DomainChoicePrompt, update, context)
     chat_id = update.message.chat_id
@@ -450,27 +451,36 @@ STATE_TO_HANDLERS = {
 GRANULAR_RULES = [
     (
         "game", MenuItem.GameIDPrompt,
-        State.ChooseDomainNameForGameID, State.WaitDomainNameForGameID, State.WaitGameIDForGameID
+        State.ChooseDomainNameForGameID, State.WaitDomainNameForGameID, State.WaitGameIDForGameID,
+        MenuItem.GranularRuleDescription,
     ),
     (
         "team", MenuItem.TeamIDPrompt,
-        State.ChooseDomainNameForTeamID, State.WaitDomainNameForTeamID, State.WaitTeamIDForTeamID
+        State.ChooseDomainNameForTeamID, State.WaitDomainNameForTeamID, State.WaitTeamIDForTeamID,
+        MenuItem.GranularRuleDescription,
     ),
     (
         "player", MenuItem.PlayerIDPrompt,
-        State.ChooseDomainNameForUserID, State.WaitDomainNameForUserID, State.WaitUserIDForUserID
+        State.ChooseDomainNameForUserID, State.WaitDomainNameForUserID, State.WaitUserIDForUserID,
+        MenuItem.GranularRuleDescription,
     ),
     (
         "author", MenuItem.AuthorIDPrompt,
-        State.ChooseDomainNameForAuthorID, State.WaitDomainNameForAuthorID, State.WaitAuthorIDForAuthorID
+        State.ChooseDomainNameForAuthorID, State.WaitDomainNameForAuthorID, State.WaitAuthorIDForAuthorID,
+        MenuItem.GranularRuleDescription,
     ),
-
+    (
+        "game_ignore", MenuItem.GameIgnoreIDPrompt,
+        State.ChooseDomainNameForGameIgnoreID, State.WaitDomainNameForGameIgnoreID, State.WaitGameIDForGameIgnoreID,
+        MenuItem.IgnoreRuleDescription,
+    ),
 ]
-for name, pr, cdn, wdn, wid in GRANULAR_RULES:
+for name, pr, cdn, wdn, wid, rd in GRANULAR_RULES:
     func_name = f"add_{name}_rule"
     func = functools.partial(
         add_granular_rule,
         wait_domain_state=cdn,
+        generic_rule_description=rd,
     )
     globals()[func_name] = func
 

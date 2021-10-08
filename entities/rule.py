@@ -24,6 +24,7 @@ class RuleType(enum.Enum):
     Team = enum.auto()
     Player = enum.auto()
     Author = enum.auto()
+    Game_Ignore = enum.auto()
 
     def url_path(self, domain: Domain) -> typing.Tuple[str, str]:
         cls = self.__class__
@@ -32,6 +33,7 @@ class RuleType(enum.Enum):
            cls.Team: domain.team_details_url,
            cls.Player: domain.user_details_url,
            cls.Author: domain.user_details_url,
+           cls.Game_Ignore: domain.game_details_url,
         }
         res = di[self]
         return res
@@ -71,6 +73,7 @@ class Rule:
     team_id: typing.Optional[int] = None
     game_id: typing.Optional[int] = None
     author_id: typing.Optional[int] = None
+    game_ignore_id: typing.Optional[int] = None
 
     @property
     def rule_id(self) -> str:
@@ -82,6 +85,9 @@ class Rule:
             self.game_id or "",
             self.author_id or "",
         ]
+        # Separate as not to disturb existing hashes
+        if self.game_ignore_id:
+            to_hash.append(self.game_ignore_id)
         to_hash = "-".join(str(x) for x in to_hash)
         rule_id = hashlib.md5(to_hash.encode()).hexdigest()[:RULE_ID_LENGTH]
         return rule_id
@@ -94,6 +100,7 @@ class Rule:
             "TEAM_ID": self.team_id,
             "GAME_ID": self.game_id,
             "AUTHOR_ID": self.author_id,
+            "GAME_IGNORE_ID": self.game_ignore_id,
         }
         return j
 
@@ -117,6 +124,7 @@ class Rule:
             cls._sanitize_value(j["TEAM_ID"]),
             cls._sanitize_value(j["GAME_ID"]),
             cls._sanitize_value(j["AUTHOR_ID"]),
+            cls._sanitize_value(j["GAME_IGNORE_ID"]),
         )
         return inst
 
@@ -127,6 +135,7 @@ class Rule:
             "team_id": MENU_LOCALIZATION[MenuItem.TeamIDText],
             "game_id": MENU_LOCALIZATION[MenuItem.GameIDText],
             "author_id": MENU_LOCALIZATION[MenuItem.AuthorIDText],
+            "game_ignore_id": MENU_LOCALIZATION[MenuItem.GameIgnoreIDText],
         }
         return di
 
@@ -138,10 +147,11 @@ class Rule:
     ) -> str:
         bad_rule = f"Bad rule: " \
                    f"domain={self.domain}, game_id={self.game_id}, " \
-                   f"player_id={self.player_id}, team_id={self.team_id}, author_id={self.author_id}"
+                   f"player_id={self.player_id}, team_id={self.team_id}, author_id={self.author_id}, "\
+                   f"game_ignore_id={self.game_ignore_id}"
         nones = [
             an
-            for an in ("player_id", "team_id", "game_id", "author_id")
+            for an in ("player_id", "team_id", "game_id", "author_id", "game_ignore_id")
             if getattr(self, an) is not None and not pd.isna(getattr(self, an))
         ]
         assert self.domain is not None and len(nones) <= 1, bad_rule

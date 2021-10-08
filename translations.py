@@ -87,6 +87,7 @@ class MenuItem(enum.Enum):
     DomainRule = enum.auto()
     GameRule = enum.auto()
     AuthorRule = enum.auto()
+    GameIgnoreRule = enum.auto()
     PlayerRule = enum.auto()
     TeamRule = enum.auto()
     RuleTypeChoiceMenu = enum.auto()
@@ -95,6 +96,7 @@ class MenuItem(enum.Enum):
     RuleNotAdded = enum.auto()
     DomainChoicePrompt = enum.auto()
     GameIDPrompt = enum.auto()
+    GameIgnoreIDPrompt = enum.auto()
     DomainEmptyError = enum.auto()
     IDInvalid = enum.auto()
     NoRules = enum.auto()
@@ -104,6 +106,7 @@ class MenuItem(enum.Enum):
     AnotherDomain = enum.auto()
     RoughRuleDescription = enum.auto()
     GranularRuleDescription = enum.auto()
+    IgnoreRuleDescription = enum.auto()
     DomainInvalid = enum.auto()
     TeamIDPrompt = enum.auto()
     PlayerIDPrompt = enum.auto()
@@ -127,6 +130,7 @@ class MenuItem(enum.Enum):
     TeamIDText = enum.auto()
     GameIDText = enum.auto()
     AuthorIDText = enum.auto()
+    GameIgnoreIDText = enum.auto()
 
     InDomainText = enum.auto()
     LinkText = enum.auto()
@@ -291,6 +295,11 @@ MENU_LOCALIZATION = {
         Language.English: "Single author tracking (within one domain)",
         Language.Ukrainian: "Стеження за всіма іграми автора в домені",
     },
+    MenuItem.GameIgnoreRule: {
+        Language.Russian: "Игнорирование игры в домене",
+        Language.English: "Single game ignoring (within one domain)",
+        Language.Ukrainian: "Ігнорування гри в домені",
+    },
     MenuItem.TeamRule: {
         Language.Russian: "Слежение за играми команды в домене",
         Language.English: "Single team games tracking (within one domain)",
@@ -362,6 +371,17 @@ MENU_LOCALIZATION = {
         Надішліть ID гри, яку ви хочете відстежувати.
          Наприклад, для гри http://kharkiv.en.cx/GameDetails.aspx?gid=72405 ID буде 72405"""
     },
+    MenuItem.GameIgnoreIDPrompt: {
+        Language.Russian: """
+        Пришлите ID игры, которую вы хотите игнорировать. 
+         Например, для игры http://kharkiv.en.cx/GameDetails.aspx?gid=71875 ID будет 71875""",
+        Language.English: """
+        Send game ID you wish to ignore. 
+         E.g. for game http://kharkiv.en.cx/GameDetails.aspx?gid=71875, ID is 71875""",
+        Language.Ukrainian: """
+        Надішліть ID гри, яку ви хочете ігнорувати.
+         Наприклад, для гри http://kharkiv.en.cx/GameDetails.aspx?gid=71875 ID буде 71875"""
+    },
     MenuItem.DomainEmptyError: {
         Language.Russian: "Не могу определить название домена. Попробуйте сначала.",
         Language.English: "Can't get domain name. Please, try again.",
@@ -414,6 +434,14 @@ MENU_LOCALIZATION = {
         Я надсилатиму вам всі новини: про перенесення гри, про будь-які зміни в описі гри, чи коли з'являється
          нове повідомлення на форумі. Також з цим правилом ви можете стежити за грою без відстеження 
          всього домена цілком.""",
+    },
+    MenuItem.IgnoreRuleDescription: {
+        Language.Russian: """
+        Я НЕ буду присылать вам никакие новости по выбранной игре""",
+        Language.English: """
+        I will NOT send you any updates on the game you choose""",
+        Language.Ukrainian: """
+        Я НЕ буду надсилати вам ніякі новини по обраній грі""",
     },
     MenuItem.DomainInvalid: {
         Language.Russian: "Некорректный домен. Попробуйте ещё раз.",
@@ -558,6 +586,11 @@ MENU_LOCALIZATION = {
         Language.Russian: "Автор {id}",
         Language.English: "Author {id})",
         Language.Ukrainian: "Автор {id}",
+    },
+    MenuItem.GameIgnoreIDText: {
+        Language.Russian: "Игнор игры {id}",
+        Language.English: "Ignore game {id})",
+        Language.Ukrainian: "Ігнор гри {id}",
     },
     MenuItem.InDomainText: {
         Language.Russian: "в домене",
