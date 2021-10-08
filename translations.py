@@ -166,6 +166,15 @@ class MenuItem(enum.Enum):
     BotStatusReportNotAllowed = enum.auto()
 
     DontUnderstand = enum.auto()
+    TUYears = enum.auto()
+    TUMonths = enum.auto()
+    TUDays = enum.auto()
+    TUHours = enum.auto()
+    TUMinutes = enum.auto()
+    TUSeconds = enum.auto()
+    TUBy = enum.auto()
+    TUForward = enum.auto()
+    TUBackward = enum.auto()
 
 
 MENU_LOCALIZATION = {
@@ -720,5 +729,50 @@ MENU_LOCALIZATION = {
         Language.Ukrainian: "Я вас не зрозумів. Якщо ви використовували команду з меню - то, можливо, "
                             "мене перезапустили, і я забув, про що ми спілкувались. В цьому випадку спробуйте "
                             "викликати /menu ще раз.",
-    }
+    },
+    MenuItem.TUYears: {
+        Language.Russian: "год",
+        Language.English: "yrs",
+        Language.Ukrainian: "рік",
+    },
+    MenuItem.TUMonths: {
+        Language.Russian: "мес",
+        Language.English: "mos",
+        Language.Ukrainian: "міс",
+    },
+    MenuItem.TUDays: {
+        Language.Russian: "дн",
+        Language.English: "dys",
+        Language.Ukrainian: "дн",
+    },
+    MenuItem.TUHours: {
+        Language.Russian: "час",
+        Language.English: "hr",
+        Language.Ukrainian: "год",
+    },
+    MenuItem.TUMinutes: {
+        Language.Russian: "мин",
+        Language.English: "min",
+        Language.Ukrainian: "хв",
+    },
+    MenuItem.TUSeconds: {
+        Language.Russian: "сек",
+        Language.English: "sec",
+        Language.Ukrainian: "сек",
+    },
+    MenuItem.TUBy: {
+        Language.Russian: "на",
+        Language.English: "",
+        Language.Ukrainian: "на",
+    },
+    MenuItem.TUBackward: {
+        Language.Russian: "раньше",
+        Language.English: "earlier",
+        Language.Ukrainian: "раніше",
+    },
+    MenuItem.TUForward: {
+        Language.Russian: "позже",
+        Language.English: "later",
+        Language.Ukrainian: "пізніше",
+    },
 }

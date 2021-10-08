@@ -18,6 +18,7 @@ from entities import Domain, BaseGame, Rule, GameFormat, Update
 from translations import Language
 from meta_constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
     InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS, MIN_HOURS_GAME_CHANGE_NOTIFY
+from secrets import SEND_ONLY_TO_ADMIN
 
 __all__ = [
     "EncounterNewsDB",
@@ -822,6 +823,8 @@ class EncounterNewsDB:
                 new_games_pt = domain.get_games()
                 new_games.extend(new_games_pt)
                 time.sleep(1)
+                if SEND_ONLY_TO_ADMIN:
+                    break
 
             self.games_to_temp_table(new_games)
             users_to_notify = self.users_to_notify()

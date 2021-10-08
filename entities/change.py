@@ -25,6 +25,15 @@ __all__ = [
     "Change", "ChangeType",
 ]
 
+TIME_UNITS = [
+    (MenuItem.TUYears, 365 * 24 * 60 * 60),
+    (MenuItem.TUMonths, 30 * 24 * 60 * 60),
+    (MenuItem.TUDays, 24 * 60 * 60),
+    (MenuItem.TUHours, 60 * 60),
+    (MenuItem.TUMinutes, 60),
+    (MenuItem.TUSeconds, 1),
+]
+
 
 class ChangeType(enum.Enum):
     NewGame = enum.auto()
@@ -132,8 +141,35 @@ class Change:
         if init_dict["forum_thread_id"] is not None:
             init_dict["forum_thread_id"] = int(init_dict["forum_thread_id"])
 
+        for time in [
+            "new_start_time", "old_start_time", "new_end_time", "old_end_time",
+        ]:
+            if isinstance(init_dict[time], str):
+                init_dict[time] = datetime.datetime.strptime(init_dict[time], '%Y-%m-%d %H:%M:%S')
+
         inst = cls(**init_dict)
         return inst
+
+    def change_delta_word(self, time_type: str, language: Language) -> str:
+        delta = getattr(self, f"new_{time_type}") - getattr(self, f"old_{time_type}")
+        seconds = delta.total_seconds()
+        sign = 1 if seconds > 0 else -1
+        seconds = abs(seconds)
+        pts = [MenuItem.TUBy]
+        for word, unit in TIME_UNITS:
+            if seconds >= unit:
+                n_whole = seconds // unit
+                seconds -= n_whole * unit
+                pts.extend([int(n_whole), word])
+
+        dir_word = MenuItem.TUForward if sign == 1 else MenuItem.TUBackward
+        pts.append(dir_word)
+        pts = [
+            str(p) if not isinstance(p, MenuItem) else MENU_LOCALIZATION[p][language]
+            for p in pts
+        ]
+        res = "({})".format(" ".join(pts))
+        return res
 
     def _to_str_content(self, change_type: ChangeType, language: Language) -> str:
         if change_type is ChangeType.NewGame:
@@ -149,7 +185,7 @@ class Change:
             msg = inst.to_str(language)
             return msg
 
-        default_joiners = ("", " -> ")
+        default_joiners = ("\n", " -> ")
         rp = ChangeType.to_root_part()
         if change_type in rp:
             root = rp[change_type]
@@ -165,7 +201,16 @@ class Change:
                 old_v_f = getattr(self, f"old_{root}")
                 new_v_f = getattr(self, f"new_{root}")
 
-            interlaced = itertools.chain.from_iterable(zip(default_joiners, [old_v_f, new_v_f]))
+            interlaced = list(itertools.chain.from_iterable(zip(default_joiners, [old_v_f, new_v_f])))
+            if change_type is ChangeType.StartTimeChanged:
+                interlaced.append(
+                    self.change_delta_word("start_time", language)
+                )
+            if change_type is ChangeType.EndTimeChanged:
+                interlaced.append(
+                    self.change_delta_word("end_time", language)
+                )
+
             res = " ".join(map(str, interlaced))
             return res
         elif change_type is ChangeType.DescriptionChanged:
