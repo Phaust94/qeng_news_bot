@@ -44,8 +44,8 @@ def send_update(upd: Update, bot: Bot, driver: typing.Optional[webdriver.Chrome]
         return None
     if not SEND_UPDATES:
         return None
-    if SEND_ONLY_TO_ADMIN and upd.user_id != ADMIN_ID:
-        return None
+    if SEND_ONLY_TO_ADMIN:
+        upd.user_id = ADMIN_ID
 
     upd.sent_ts = datetime.datetime.utcnow()
     # noinspection PyBroadException

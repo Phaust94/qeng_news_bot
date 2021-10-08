@@ -126,6 +126,9 @@ class Change:
         if pd.isna(init_dict["forum_thread_id"]):
             init_dict["forum_thread_id"] = None
 
+        if pd.isna(init_dict["new_message_text"]):
+            init_dict["new_message_text"] = None
+
         if init_dict["forum_thread_id"] is not None:
             init_dict["forum_thread_id"] = int(init_dict["forum_thread_id"])
 
@@ -134,14 +137,17 @@ class Change:
 
     def _to_str_content(self, change_type: ChangeType, language: Language) -> str:
         if change_type is ChangeType.NewGame:
-            return BaseGame(
+            game_cls = self.domain.upper_level_domain.game_class
+            inst = game_cls(
                 self.domain,
                 self.id, self.new_name, self.game_mode, self.game_format,
                 self.new_passing_sequence, self.new_start_time, self.new_end_time,
                 self.new_player_ids, self.new_description_truncated,
                 self.authors, self.authors_ids, self.forum_thread_id, self.new_last_message_id,
                 self.new_message_text,
-            ).to_str(language)
+            )
+            msg = inst.to_str(language)
+            return msg
 
         default_joiners = ("", " -> ")
         rp = ChangeType.to_root_part()
@@ -194,7 +200,7 @@ class Change:
             return res
         else:
             assert change_type is ChangeType.NewForumMessage, "Wrong change type"
-            res = str(BeautifulSoup(self.new_message_text, 'lxml').text)
+            res = str(BeautifulSoup(self.new_message_text or '', 'lxml').text)
             return res
 
     def change_type_to_msg(self, change_type: ChangeType, language: Language) -> str:

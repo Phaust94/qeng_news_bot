@@ -34,7 +34,7 @@ class FeedEntry:
         msg_id = int(sp[-1])
         # noinspection PyTypeChecker
         tid = int(params["topic"][0])
-        summ = BeautifulSoup(j["summary"], 'lxml').text
+        summ = BeautifulSoup(j["summary"] or '', 'lxml').text
         inst = cls(
             tid, msg_id,
             j["author"],

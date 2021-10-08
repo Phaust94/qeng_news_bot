@@ -66,7 +66,7 @@ class EncounterDomain(Domain):
         ua = USER_AGENTS_FACTORY.random
         hdrs = {"User-Agent": ua}
         games_page = requests.get(self.full_url_to_parse, headers=hdrs).text
-        soup = BeautifulSoup(games_page, 'lxml')
+        soup = BeautifulSoup(games_page or '', 'lxml')
         tags = soup.find_all("div", class_="boxGameInfo")
         forum = Forum.from_url(self.forum_url)
         games = [

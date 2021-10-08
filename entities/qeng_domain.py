@@ -70,7 +70,7 @@ class QEngGame(BaseGame):
     @classmethod
     def from_feed(cls, domain: Domain, fe: feedparser.FeedParserDict) -> QEngGame:
         descr = fe.summary
-        descr_soup = BeautifulSoup(descr, 'lxml')
+        descr_soup = BeautifulSoup(descr or '', 'lxml')
         descr_text = descr_soup.text
         descr_text = cls.strip_description_text(descr_text)
         if not fe.authors:
@@ -97,8 +97,8 @@ class QEngGame(BaseGame):
     @classmethod
     def from_api(cls, domain: Domain, g: typing.Dict[str, typing.Any]) -> QEngGame:
         descr = g["description"]
-        descr_soup = BeautifulSoup(descr, 'lxml').text
-        descr_soup = BeautifulSoup(descr_soup, 'lxml').text
+        descr_soup = BeautifulSoup(descr or '', 'lxml').text
+        descr_soup = BeautifulSoup(descr_soup or '', 'lxml').text
         descr_text = cls.strip_description_text(descr_soup)
         authors_ids = [int(a["uid"]) for a in g["authors"]]
         authors_names = [a["username"] for a in g["authors"]]
@@ -107,7 +107,7 @@ class QEngGame(BaseGame):
             for t in g["teams"]
             if int(t["status"]) in {0, 1}
         ]
-        name = BeautifulSoup(g["name"], "lxml").text
+        name = BeautifulSoup(g["name"] or '', "lxml").text
 
         g = cls(
             domain, int(g["id"]),
