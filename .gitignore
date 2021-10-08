@@ -1,5 +1,6 @@
 *.exe
 secrets.py
+secrets_remote.py
 .idea
 *.sqlite
 tst*.py
