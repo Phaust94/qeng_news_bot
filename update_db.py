@@ -27,7 +27,7 @@ CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
 SEND_UPDATES = True
 UPDATE_BLOCKLIST = {
-    # (r'kharkiv\.en\.cx', 71875),       # Fucking "Реальная Виртуальность" spams updates as hell
+    (r'kharkiv\.en\.cx', 73046),       # Fucking "Реальная Виртуальность" spams updates as hell
     (r"qeng\.org", 80),
     (r"qeng\.org", 3115),
     (r"qeng\.org", 3493),
