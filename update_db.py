@@ -22,24 +22,33 @@ from db_api import EncounterNewsDB
 from secrets import API_KEY, SEND_ONLY_TO_ADMIN
 from meta_constants import DB_LOCATION, ADMIN_ID
 from entities import Update
+from entities.domain_meta import UpperLevelDomain
 
 CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
 SEND_UPDATES = True
 UPDATE_BLOCKLIST = {
     (r'kharkiv\.en\.cx', 73046),       # Fucking "Реальная Виртуальность" spams updates as hell
-    (r"qeng\.org", 80),
-    (r"qeng\.org", 3115),
-    (r"qeng\.org", 3493),
-    (r"qeng\.org", 1279),
-    (r"qeng\.org", 431),             # Training games QENG
+    (UpperLevelDomain.QENG, 80),
+    (UpperLevelDomain.QENG, 3115),
+    (UpperLevelDomain.QENG, 3493),
+    (UpperLevelDomain.QENG, 1279),
+    (UpperLevelDomain.QENG, 431),             # Training games QENG
 }
 
 
 def is_blocked(update: Update) -> bool:
     for dom, gid in UPDATE_BLOCKLIST:
-        if re.findall(dom, update.change.domain.pretty_name) and update.change.id == gid:
+
+        if update.change.id != gid:
+            continue
+
+        if isinstance(dom, str) and re.findall(dom, update.change.domain.pretty_name):
             return True
+
+        if isinstance(dom, UpperLevelDomain) and update.change.domain.upper_level_domain is dom:
+            return True
+
     return False
 
 
