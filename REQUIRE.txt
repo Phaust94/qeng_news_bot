@@ -7,3 +7,4 @@ fake_useragent
 feedparser
 selenium
 pillow
+cachier >= 1.5.0

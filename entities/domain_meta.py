@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = [
     "UpperLevelDomain",
+    "WHITELISTED_IP_TO_ENGINE",
 ]
 
 
@@ -66,6 +67,11 @@ class UpperLevelDomain(enum.Enum):
         }
         s = res[self]
         return s
+
+
+WHITELISTED_IP_TO_ENGINE = {
+    '88.80.184.82': UpperLevelDomain.QENG,
+}
 
 
 if __name__ == '__main__':
