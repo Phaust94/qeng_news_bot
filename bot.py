@@ -19,7 +19,7 @@ if cur_dir not in sys.path:
 
 from secrets import API_KEY
 from version import __version__
-from db_api import EncounterNewsDB
+from db_api import QEngNewsDB
 from meta_constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \
     GAME_RULE_DOMAIN_KEY, RULE_ID_LENGTH, InvalidDomainError, DEFAULT_DAYS_IN_FUTURE
 from translations import Language
@@ -31,7 +31,7 @@ from bot_constants import h as h_full
 # noinspection PyUnusedLocal
 def prompt_language(update: Update, context: CallbackContext) -> int:
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         db.start_user_updates(update.message.chat_id)
 
     msg = "Hello! Which language do you want me to speak?"
@@ -53,7 +53,7 @@ def store_user_lang(update: Update, context: CallbackContext) -> int:
     lang = update.message.text
     lang = Language.from_full_name(lang)
     context.chat_data[USER_LANGUAGE_KEY] = lang.value
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         db.set_user_language(update.message.chat_id, lang)
     lang_set_msg = MENU_LOCALIZATION[MenuItem.LangSet][lang]
     lang_set_msg = lang_set_msg.format(lang.full_name)
@@ -96,7 +96,7 @@ def settings_choice_done(update: Update, context: CallbackContext) -> int:
 
 
 def add_rule_promt(update: Update, context: CallbackContext) -> int:
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         is_ok_to_add = db.is_user_within_rule_limits(update.message.chat_id)
     if not is_ok_to_add:
         msg = localize_dedent(MenuItem.RuleLimitReached, update, context)
@@ -149,7 +149,7 @@ def _find_rules(
     add_href: bool = False, force_no_href: bool = False,
 ) -> typing.List[str]:
     chat_id = update.message.chat_id
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         rules = db.get_user_rules(chat_id)
     lang = find_user_lang(update, context)
     rules = [
@@ -192,7 +192,7 @@ def add_domain_get_domain(update: Update, context: CallbackContext) -> int:
     chat_id = update.message.chat_id
     domain = update.message.text
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         # TODO: add domain validation logic
         try:
             succ, rule = db.add_domain_to_user_outer(chat_id, domain)
@@ -222,7 +222,7 @@ def wait_rule_to_delete(update: Update, context: CallbackContext) -> int:
         msg = localize(MenuItem.RuleIDInvalid, update, context)
         update.message.reply_text(msg)
         return settings_prompt(update, context)
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         # TODO: add domain validation logic
         rule = db.get_user_rule_by_id(chat_id, rule_id)
         user_lang = find_user_lang(update, context)
@@ -253,7 +253,7 @@ def add_granular_rule(
     msg = localize(MenuItem.DomainChoicePrompt, update, context)
     chat_id = update.message.chat_id
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         domains = db.get_user_domains(chat_id)
 
     another_domain = localize(MenuItem.AnotherDomain, update, context)
@@ -284,7 +284,7 @@ def accept_domain_granular_rule(
 ) -> int:
     domain = update.message.text
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         try:
             db.track_domain_outer(domain)
         except InvalidDomainError:
@@ -319,7 +319,7 @@ def add_granular_rule_get_id(
         update.message.reply_text(msg)
         return add_rule_promt(update, context)
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         kwargs = {key: game_id}
         succ, rule = db.add_mixed_rule_outer(chat_id, domain, **kwargs)
 
@@ -338,7 +338,7 @@ def get_subscribed_games(update: Update, context: CallbackContext) -> int:
     msg = localize(MenuItem.GamesInFutureWarning, update, context)
     update.message.reply_text(msg)
 
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         games = db.get_all_user_games(chat_id, DEFAULT_DAYS_IN_FUTURE)
 
     lang = find_user_lang(update, context)
@@ -368,7 +368,7 @@ def error_handler(update: Update, context: CallbackContext) -> None:
 # noinspection PyUnusedLocal
 def info(update: Update, context: CallbackContext) -> None:
     msg = localize(MenuItem.Info, update, context)
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         updates_on = db.get_updates_on_off(update.message.chat_id)
 
     st = "UpdatesOn" if updates_on else "UpdatesOff"
@@ -385,7 +385,7 @@ def info(update: Update, context: CallbackContext) -> None:
 # noinspection PyUnusedLocal
 def stop(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         db.stop_user_updates(chat_id)
     msg = localize(MenuItem.BotStopped, update, context)
     update.message.reply_text(msg)
@@ -398,7 +398,7 @@ def status_check(update: Update, context: CallbackContext) -> None:
     if chat_id != meta_constants.ADMIN_ID:
         msg = localize(MenuItem.BotStatusReportNotAllowed, update, context)
     else:
-        with EncounterNewsDB(DB_LOCATION) as db:
+        with QEngNewsDB(DB_LOCATION) as db:
             res = db.count_updates()
         msg = localize(MenuItem.BotStatusReportAllowed, update, context)
         msg = msg.format(*res)

@@ -27,7 +27,7 @@ class Domain(abc.ABC):
     name: str
     language: Language = Language.Russian
     is_https: bool = False
-    upper_level_domain: UpperLevelDomain = UpperLevelDomain.EN_CX
+    upper_level_domain: UpperLevelDomain = UpperLevelDomain.QENG
     force_add_upper_level_postfix: bool = True
 
     @property
@@ -87,7 +87,7 @@ class Domain(abc.ABC):
             try:
                 domain_ip = cls.get_ip(sp.netloc)
             except Exception:
-                domain_ip = {}
+                domain_ip = set()
             inters = domain_ip.intersection(WHITELISTED_IP_TO_ENGINE)
             inters_domains = {WHITELISTED_IP_TO_ENGINE[el] for el in inters}
 
@@ -150,10 +150,9 @@ class Domain(abc.ABC):
 
 if __name__ == '__main__':
     for dom_ in [
-        "od.quest.ua", "kharkiv.en.cx", "quest.ua",
         "game.qeng.org",
         "https://game.odessaquest.com.ua/index.php",
-        # "play.probeg.net.ua"
+        "play.probeg.net.ua",
         # "pornhub.com",
     ]:
         dom_inst_ = Domain.from_url(dom_)

@@ -14,7 +14,7 @@ from telegram.ext import CommandHandler, CallbackContext, MessageHandler, Filter
 from translations import Language
 from meta_constants import USER_LANGUAGE_KEY, DB_LOCATION, GAME_JOINER, \
     MAX_MESSAGE_LENGTH_TELEGRAM
-from db_api import EncounterNewsDB
+from db_api import QEngNewsDB
 from translations import MENU_LOCALIZATION, MenuItem
 
 if typing.TYPE_CHECKING:
@@ -68,7 +68,7 @@ def find_user_lang(update: Update, context: CallbackContext) -> Language:
         lang = context.chat_data[USER_LANGUAGE_KEY]
         lang = Language(lang)
     else:
-        with EncounterNewsDB(DB_LOCATION) as db:
+        with QEngNewsDB(DB_LOCATION) as db:
             lang = db.get_user_language(chat_id)
         context.chat_data[USER_LANGUAGE_KEY] = lang.value
     return lang

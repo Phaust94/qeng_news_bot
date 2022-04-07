@@ -18,7 +18,7 @@ if cur_dir not in sys.path:
 from telegram.ext import Updater
 from telegram import Bot
 
-from db_api import EncounterNewsDB
+from db_api import QEngNewsDB
 from secrets import API_KEY, SEND_ONLY_TO_ADMIN
 from meta_constants import DB_LOCATION, ADMIN_ID
 from entities import Update
@@ -28,7 +28,6 @@ CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
 
 SEND_UPDATES = True
 UPDATE_BLOCKLIST = {
-    (r'kharkiv\.en\.cx', 73046),       # Fucking "Реальная Виртуальность" spams updates as hell
     (UpperLevelDomain.QENG, 80),
     (UpperLevelDomain.QENG, 3115),
     (UpperLevelDomain.QENG, 3493),
@@ -94,7 +93,7 @@ def send_update(upd: Update, bot: Bot, driver: typing.Optional[webdriver.Chrome]
 def update_db() -> None:
     updater = Updater(API_KEY, workers=1)
     bot = updater.bot
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         updates = db.get_updates()
 
         driver = None

@@ -49,8 +49,8 @@ class Language(enum.Enum):
     def full_name_dict(cls) -> typing.Dict[Language, str]:
         di = {
             cls.English: "English",
-            cls.Russian: "Русский",
             cls.Ukrainian: "Українська",
+            cls.Russian: "Русский",
         }
         return di
 
@@ -198,9 +198,10 @@ MENU_LOCALIZATION = {
         Language.Ukrainian: "Сталась помилка",
     },
     MenuItem.Info: {
-        Language.Russian: "Это новостной бот Энки\nВерсия {}\nВаш язык - Русский\nОповещения {}",
-        Language.English: "This is an Encounter news bot\nVersion {}\nYour language is English\nUpdates are {}",
-        Language.Ukrainian: "Це новинний бот мережі ігр Енкаунтер\nВерсія {}\nВаша мова - Українська\nСповіщення {}",
+        Language.Russian: "Это новостной бот сети квестов QEng\nВерсия {}\nВаш язык - Русский\nОповещения {}",
+        Language.English: "This is a news bot for the network of urban games QEng\nVersion {}\nYour language is English"
+                          "\nUpdates are {}",
+        Language.Ukrainian: "Це новинний бот мережі ігр QEng\nВерсія {}\nВаша мова - Українська\nСповіщення {}",
     },
     MenuItem.UpdatesOn: {
         Language.Russian: f"включены {chr(0x2705)}",
@@ -215,7 +216,7 @@ MENU_LOCALIZATION = {
     MenuItem.BotStopped: {
         Language.Russian: "Я больше не буду слать вам уведомления. Если вы захотите возобновить обновления - "
                           "пришлите мне команду /start",
-        Language.English: "I won't send you updates anymore. If you'd like to resume receiving Encounter news - just "
+        Language.English: "I won't send you updates anymore. If you'd like to resume receiving game news - just "
                           "send me the /start command",
         Language.Ukrainian: "Я більше не буду надсилати вам сповіщення. Якщо ви захочете відновити оновлення - "
                           "надішліть мені команду /start",
@@ -231,7 +232,7 @@ MENU_LOCALIZATION = {
     MenuItem.Welcome: {
         Language.Russian: """
         Приветствую! Я - бот, который поможет вам всегда быть в курсе 
-        всех новостей Энки. Я могу следить за всеми играми на определённом домене, за какой-то конкретной игрой 
+        всех новостей QEng. Я могу следить за всеми играми на определённом домене, за какой-то конкретной игрой 
         или за всеми играми вашей команды.
         Когда на сайте будут какие-то изменения в анонсе игры, или появятся новые игры - 
         я обязательно вам об этом сообщу. 
@@ -239,14 +240,14 @@ MENU_LOCALIZATION = {
          Сейчас рекомендую добавить ваше первое правило отслеживания домена.""",
         Language.English: """
         Hello! I am a bot who will help you always be up-to-date 
-        with all Encounter games. I can track all games in a given domain, track a certain game, or
+        with all QEng games. I can track all games in a given domain, track a certain game, or
          track all games where your team (or you) participates. When there are any changes to a game announcement,
          or there's a new game going on - I'll send you a message.
           Read my description <a href='https://telegra.ph/Encounter-News---Bot-English-09-20' 
           target='_blank'>here</a>. 
           Now I suggest you add your first domain tracking rule.""",
         Language.Ukrainian: """
-        Привіт! Я - бот, що допоможе вам завжди бути в курсі всіх новин Енки.
+        Привіт! Я - бот, що допоможе вам завжди бути в курсі всіх новин ігр QEng.
         Я можу стежити за всіма іграми на визначеному домені, за якосюсь конкретною грою, 
         чи за всіма іграми вашої команди. Коли на сайті ставатимуться якісь зміни в анонсі гри, чи з'являться 
         нові ігри - я обов'язково вам про це повідомлю. 
@@ -317,20 +318,14 @@ MENU_LOCALIZATION = {
     },
     MenuItem.DomainPrompt: {
         Language.Russian: """
-        Пришлите мне ссылку на домен. Например, http://kharkiv.en.cx/.
-        Если в домене разный список игр для разных языков - то пришлите ссылку с указанием языка домена. 
-        Например, http://kharkiv.en.cx/?lang=ru.
-        Поддерживаются домены *.qeng.org, *.en.cx, *.quest.ua""",
+        Пришлите мне ссылку на домен. Например, https://game.qeng.org/.
+        Поддерживаются домены *.qeng.org""",
         Language.English: """
-        Send me domain URL. E.g. http://kharkiv.en.cx/.
-        If a domain has different games list for different languages - 
-        then specify the language you wish to track in the link. E.g. http://kharkiv.en.cx/?lang=ru
-        Domains supported are *.qeng.org, *.en.cx, *.quest.ua""",
+        Send me domain URL. E.g. https://game.qeng.org/.
+        Domains supported are *.qeng.org""",
         Language.Ukrainian: """
-        Надішліть мені посилання на домен. Наприклад, http://kharkiv.en.cx/.
-        Якщо в домені різний список ігр для різних мов - то надішліть посилання із вказанням мови домену.
-        Наприклад, http://kharkiv.en.cx/?lang=ru.
-        Домени, що підтримуються: *.qeng.org, *.en.cx, *.quest.ua""",
+        Надішліть мені посилання на домен. Наприклад, https://game.qeng.org/.
+        Домени, що підтримуються: *.qeng.org""",
     },
     MenuItem.RoughRuleDescription: {
         Language.Russian: """
@@ -363,24 +358,24 @@ MENU_LOCALIZATION = {
     MenuItem.GameIDPrompt: {
         Language.Russian: """
         Пришлите ID игры, которую вы хотите отслеживать. 
-         Например, для игры http://kharkiv.en.cx/GameDetails.aspx?gid=72405 ID будет 72405""",
+         Например, для игры https://game.qeng.org/archive.php?gid=4329 ID будет 4329""",
         Language.English: """
         Send game ID you wish to track. 
-         E.g. for game http://kharkiv.en.cx/GameDetails.aspx?gid=72405, ID is 72405""",
+         E.g. for game https://game.qeng.org/archive.php?gid=4329, ID is 4329""",
         Language.Ukrainian: """
         Надішліть ID гри, яку ви хочете відстежувати.
-         Наприклад, для гри http://kharkiv.en.cx/GameDetails.aspx?gid=72405 ID буде 72405"""
+         Наприклад, для гри https://game.qeng.org/archive.php?gid=4329 ID буде 4329"""
     },
     MenuItem.GameIgnoreIDPrompt: {
         Language.Russian: """
         Пришлите ID игры, которую вы хотите игнорировать. 
-         Например, для игры http://kharkiv.en.cx/GameDetails.aspx?gid=71875 ID будет 71875""",
+         Например, для игры https://game.qeng.org/archive.php?gid=4329 ID будет 4329""",
         Language.English: """
         Send game ID you wish to ignore. 
-         E.g. for game http://kharkiv.en.cx/GameDetails.aspx?gid=71875, ID is 71875""",
+         E.g. for game https://game.qeng.org/archive.php?gid=4329, ID is 4329""",
         Language.Ukrainian: """
         Надішліть ID гри, яку ви хочете ігнорувати.
-         Наприклад, для гри http://kharkiv.en.cx/GameDetails.aspx?gid=71875 ID буде 71875"""
+         Наприклад, для гри https://game.qeng.org/archive.php?gid=4329 ID буде 4329"""
     },
     MenuItem.DomainEmptyError: {
         Language.Russian: "Не могу определить название домена. Попробуйте сначала.",
@@ -451,36 +446,36 @@ MENU_LOCALIZATION = {
     MenuItem.TeamIDPrompt: {
         Language.Russian: """
     Пришлите ID команды, игры которой вы хотите отслеживать. 
-     Например, для команды http://kharkiv.en.cx/Teams/TeamDetails.aspx?tid=183339 ID будет 183339""",
+     Например, для команды https://game.qeng.org/team.php?team_id=4048 ID будет 4048""",
         Language.English: """
     Send team ID you wish to follow. 
-     E.g. for team http://kharkiv.en.cx/Teams/TeamDetails.aspx?tid=183339, ID is 183339""",
+     E.g. for team https://game.qeng.org/team.php?team_id=4048, ID is 4048""",
         Language.Ukrainian: """
         Надішліть ID команди, ігри якої ви хочете відстежувати.
-         Наприклад, для команди http://kharkiv.en.cx/Teams/TeamDetails.aspx?tid=183339 ID буде 183339""",
+         Наприклад, для команди https://game.qeng.org/team.php?team_id=4048 ID буде 4048""",
     },
     MenuItem.PlayerIDPrompt: {
         Language.Russian: """
     Пришлите ID игрока, игры которого вы хотите отслеживать (для одиночных игр).  
-     Например, для игрока http://kharkiv.en.cx/UserDetails.aspx?uid=1724452 ID будет 1724452""",
+     Например, для игрока https://game.qeng.org/view_user.php?user_id=9856 ID будет 9856""",
         Language.English: """
     Send player ID you wish to follow (for single games). 
-     E.g. for player http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID is 1724452""",
+     E.g. for player https://game.qeng.org/view_user.php?user_id=9856, ID is 9856""",
         Language.Ukrainian: """
         Надішліть ID гравця, ігри якого ви хочете відстежувати.
-         Наприклад, для гравця http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID буде 1724452""",
+         Наприклад, для гравця https://game.qeng.org/view_user.php?user_id=9856, ID буде 9856""",
     },
 
     MenuItem.AuthorIDPrompt: {
         Language.Russian: """
     Пришлите ID автора, игры которого вы хотите отслеживать.  
-     Например, для игрока http://kharkiv.en.cx/UserDetails.aspx?uid=1724452 ID будет 1724452""",
+     Например, для игрока https://game.qeng.org/view_user.php?user_id=9856 ID будет 9856""",
         Language.English: """
     Send player ID you wish to follow (as an author). 
-     E.g. for player http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID is 1724452""",
+     E.g. for player https://game.qeng.org/view_user.php?user_id=9856, ID is 9856""",
         Language.Ukrainian: """
         Надішліть ID автора, ігри якого ви хочете відстежувати.
-         Наприклад, для гравця http://kharkiv.en.cx/UserDetails.aspx?uid=1724452, ID буде 1724452""",
+         Наприклад, для гравця https://game.qeng.org/view_user.php?user_id=9856, ID буде 9856""",
     },
 
     MenuItem.ListSubscribedGames: {

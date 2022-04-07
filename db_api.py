@@ -21,7 +21,7 @@ from meta_constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH,
 from secrets import SEND_ONLY_TO_ADMIN
 
 __all__ = [
-    "EncounterNewsDB",
+    "QEngNewsDB",
 ]
 
 ADMIN_ID = 476001386
@@ -32,7 +32,7 @@ N_SIGMA = 1
 
 
 @dataclass
-class EncounterNewsDB:
+class QEngNewsDB:
     db_location: str
     _db_conn: Connection = field(init=False, default=None)
 
@@ -859,7 +859,7 @@ class EncounterNewsDB:
         return res
 
     def get_updates(
-            self: EncounterNewsDB,
+            self: QEngNewsDB,
             domains_due_override: typing.List[Domain] = None,
     ) -> typing.List[Update]:
         if domains_due_override:
@@ -986,7 +986,7 @@ class EncounterNewsDB:
 if __name__ == '__main__':
 
     from meta_constants import DB_LOCATION
-    with EncounterNewsDB(DB_LOCATION) as db_:
+    with QEngNewsDB(DB_LOCATION) as db_:
         d_ = Domain("kharkiv")
         db_.get_updates(domains_due_override=[d_])
         db_.commit_update()

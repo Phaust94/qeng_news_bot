@@ -11,7 +11,7 @@ if cur_dir not in sys.path:
 
 from telegram.ext import Updater
 
-from db_api import EncounterNewsDB
+from db_api import QEngNewsDB
 from secrets import API_KEY
 from meta_constants import DB_LOCATION, ADMIN_ID
 from bot_constants import MENU_LOCALIZATION, MenuItem
@@ -21,7 +21,7 @@ from translations import Language
 def status_update() -> None:
     updater = Updater(API_KEY, workers=1)
     bot = updater.bot
-    with EncounterNewsDB(DB_LOCATION) as db:
+    with QEngNewsDB(DB_LOCATION) as db:
         res = db.count_updates()
     msg = MENU_LOCALIZATION[MenuItem.BotStatusReportAllowed][Language.Ukrainian]
     msg = msg.format(*res)
