@@ -19,7 +19,7 @@ from telegram.ext import Updater
 from telegram import Bot
 
 from db_api import QEngNewsDB
-from secrets import API_KEY, SEND_ONLY_TO_ADMIN
+from bot_secrets import API_KEY, SEND_ONLY_TO_ADMIN
 from meta_constants import DB_LOCATION, ADMIN_ID
 from entities import Update
 from entities.domain_meta import UpperLevelDomain

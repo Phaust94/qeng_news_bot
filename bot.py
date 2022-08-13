@@ -17,7 +17,7 @@ cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path:
     sys.path.append(cur_dir)
 
-from secrets import API_KEY
+from bot_secrets import API_KEY
 from version import __version__
 from db_api import QEngNewsDB
 from meta_constants import DB_LOCATION, USER_LANGUAGE_KEY, MAIN_MENU_COMMAND, \

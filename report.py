@@ -12,7 +12,7 @@ if cur_dir not in sys.path:
 from telegram.ext import Updater
 
 from db_api import QEngNewsDB
-from secrets import API_KEY
+from bot_secrets import API_KEY
 from meta_constants import DB_LOCATION, ADMIN_ID
 from bot_constants import MENU_LOCALIZATION, MenuItem
 from translations import Language

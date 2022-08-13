@@ -1,5 +1,5 @@
 *.exe
-secrets.py
+bot_secrets.py
 secrets_remote.py
 .idea
 *.sqlite

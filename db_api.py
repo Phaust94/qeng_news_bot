@@ -18,7 +18,7 @@ from entities import Domain, BaseGame, Rule, GameFormat, Update
 from translations import Language
 from meta_constants import PERCENTAGE_CHANGE_TO_TRIGGER, MAX_DESCRIPTION_LENGTH, MAX_LAST_MESSAGE_LENGTH,\
     InvalidDomainError, MAX_USER_RULES_ALLOWED, UPDATE_FREQUENCY_SECONDS, MIN_HOURS_GAME_CHANGE_NOTIFY
-from secrets import SEND_ONLY_TO_ADMIN
+from bot_secrets import SEND_ONLY_TO_ADMIN
 
 __all__ = [
     "QEngNewsDB",
