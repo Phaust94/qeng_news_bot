@@ -20,7 +20,7 @@ __all__ = [
     "ADMIN_ID",
 ]
 
-DB_LOCATION = os.path.join(__file__, "..", "data", "bot_db.sqlite")
+DB_LOCATION = os.path.abspath(os.path.join(__file__, "..", "data", "bot_db.sqlite"))
 # UPDATE_FREQUENCY_SECONDS = 6 * 60 * 60
 UPDATE_FREQUENCY_SECONDS = 1
 MAX_DESCRIPTION_LENGTH = 10_000
