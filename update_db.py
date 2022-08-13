@@ -24,7 +24,8 @@ from meta_constants import DB_LOCATION, ADMIN_ID
 from entities import Update
 from entities.domain_meta import UpperLevelDomain
 
-CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
+# CHROME_DRIVER_PATH = os.path.join(__file__, "..", "data", "chromedriver.exe")
+CHROME_DRIVER_PATH = "chromedriver"
 
 SEND_UPDATES = True
 UPDATE_BLOCKLIST = {

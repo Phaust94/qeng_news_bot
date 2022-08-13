@@ -5,3 +5,4 @@ secrets_remote.py
 *.sqlite
 tst*.py
 *.bat
+.gitsecret/keys/random_seed
