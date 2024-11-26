@@ -1,0 +1,2 @@
+#!/bin/bash
+/build/chrome-linux64/chrome-exec --no-sandbox --disable-dev-shm-usage "$@"

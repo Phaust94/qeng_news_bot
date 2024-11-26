@@ -1,0 +1,5 @@
+*.exe
+.idea
+tst*.py
+.gitsecret/keys/random_seed
+data/bot_db.sqlite

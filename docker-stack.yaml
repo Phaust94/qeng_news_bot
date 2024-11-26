@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  bot:
+    image: phaust94/bots:news
+    volumes:
+      - data:/app/data
+      - logs:/logs
+  bot-cron:
+    image: phaust94/bots:news
+    command: sh -c 'cron && sleep infinity'
+    volumes:
+      - data:/app/data
+      - logs:/logs
+
+volumes:
+  data:
+    driver: local
+  logs:
+    driver: local
